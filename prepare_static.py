@@ -13,7 +13,7 @@ version =  torch.__version__
 # Options
 # --------
 parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--data_dir',default='/home/zzd/Market/pytorch',type=str, help='training dir path')
+parser.add_argument('--data_dir',default='/home/hmhm/reid/Market/pytorch',type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data' )
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training' )
 parser.add_argument('--batchsize', default=128, type=int, help='batchsize')
@@ -100,14 +100,14 @@ def prepare_model():
                 now_batch_size,c,h,w = inputs.shape
                 mean += torch.sum(torch.mean(torch.mean(inputs,dim=3),dim=2),dim=0)
                 std += torch.sum(torch.std(inputs.view(now_batch_size,c,h*w),dim=2),dim=0)
-                
+
             print(mean/dataset_sizes['train'])
             print(std/dataset_sizes['train'])
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    return 
+    return
 
 
 
