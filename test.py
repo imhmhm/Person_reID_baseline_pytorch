@@ -22,7 +22,7 @@ from model import ft_net, ft_net_dense, PCB, PCB_test
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir',default='/home/zzd/Market/pytorch',type=str, help='./test_data')
+parser.add_argument('--test_dir',default='/home/hmhm/reid/Market/pytorch',type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=256, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
@@ -57,10 +57,10 @@ data_transforms = transforms.Compose([
         transforms.Resize((256,128), interpolation=3),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-############### Ten Crop        
+############### Ten Crop
         #transforms.TenCrop(224),
         #transforms.Lambda(lambda crops: torch.stack(
-         #   [transforms.ToTensor()(crop) 
+         #   [transforms.ToTensor()(crop)
           #      for crop in crops]
            # )),
         #transforms.Lambda(lambda crops: torch.stack(
@@ -73,7 +73,7 @@ if opt.PCB:
     data_transforms = transforms.Compose([
         transforms.Resize((384,192), interpolation=3),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) 
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
 
@@ -129,7 +129,7 @@ def extract_feature(model,dataloaders):
             if(i==1):
                 img = fliplr(img)
             input_img = Variable(img.cuda())
-            outputs = model(input_img) 
+            outputs = model(input_img)
             f = outputs.data.cpu()
             ff = ff+f
         # norm feature
@@ -137,7 +137,7 @@ def extract_feature(model,dataloaders):
             # feature size (n,2048,6)
             # 1. To treat every part equally, I calculate the norm for every 2048-dim part feature.
             # 2. To keep the cosine score==1, sqrt(6) is added to norm the whole feature (2048*6).
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6) 
+            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
             ff = ff.div(fnorm.expand_as(ff))
             ff = ff.view(ff.size(0), -1)
         else:
@@ -203,7 +203,7 @@ with torch.no_grad():
     query_feature = extract_feature(model,dataloaders['query'])
     if opt.multi:
         mquery_feature = extract_feature(model,dataloaders['multi-query'])
-    
+
 # Save to Matlab for check
 result = {'gallery_f':gallery_feature.numpy(),'gallery_label':gallery_label,'gallery_cam':gallery_cam,'query_f':query_feature.numpy(),'query_label':query_label,'query_cam':query_cam}
 scipy.io.savemat('pytorch_result.mat',result)
