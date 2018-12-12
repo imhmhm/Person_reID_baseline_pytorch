@@ -87,7 +87,10 @@ else:
     image_datasets = {x: datasets.ImageFolder( os.path.join(data_dir,x) ,data_transforms) for x in ['gallery','query']}
     dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
                                              shuffle=False, num_workers=16) for x in ['gallery','query']}
+
+image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train_all'), data_transforms)
 class_names = image_datasets['query'].classes
+train_class_names = image_datasets['train'].classes
 use_gpu = torch.cuda.is_available()
 
 ######################################################################
@@ -176,12 +179,12 @@ if opt.multi:
 # Load Collected data Trained model
 print('-------test-----------')
 if opt.use_dense:
-    model_structure = ft_net_dense(751)
+    model_structure = ft_net_dense(train_class_names)
 else:
-    model_structure = ft_net(751)
+    model_structure = ft_net(train_class_names)
 
 if opt.PCB:
-    model_structure = PCB(751)
+    model_structure = PCB(train_class_names)
 
 model = load_network(model_structure)
 
