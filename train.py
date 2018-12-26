@@ -346,4 +346,4 @@ with open('%s/opts.json'%dir_name,'w') as fp:
     json.dump(vars(opt), fp, indent=1)
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=60)
+                       num_epochs=100)
