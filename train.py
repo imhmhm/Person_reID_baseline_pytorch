@@ -30,7 +30,7 @@ version =  torch.__version__
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--name',default='ft_ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir',default='/home/hmhm/reid/Market/pytorch',type=str, help='training dir path')
+parser.add_argument('--data_dir',default='/home/tianlab/hengheng/reid/Market/pytorch',type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data' )
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training' )
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -64,6 +64,7 @@ if len(gpu_ids)>0:
 transform_train_list = [
         #transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256,128), interpolation=3),
+        #transforms.Resize((288,144), interpolation=3),
         transforms.Pad(10),
         transforms.RandomCrop((256,128)),
         transforms.RandomHorizontalFlip(),
@@ -174,8 +175,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 #print(inputs.shape)
                 # wrap them in Variable
                 if use_gpu:
-                    inputs = Variable(inputs.cuda())
-                    labels = Variable(labels.cuda())
+                    inputs = Variable(inputs.cuda().detach())
+                    labels = Variable(labels.cuda().detach())
+                    # inputs = Variable(inputs.cuda())
+                    # labels = Variable(labels.cuda())
                 else:
                     inputs, labels = Variable(inputs), Variable(labels)
 

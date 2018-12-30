@@ -4,7 +4,8 @@ from shutil import copyfile, move
 import numpy as np
 
 # You only need to change this line to your dataset download path
-download_path = '/home/hmhm/reid/Market'
+#download_path = '/home/hmhm/reid/Market'
+download_path = '/home/tianlab/hengheng/reid/Market'
 
 if not os.path.isdir(download_path):
     print('please change the download_path')
@@ -68,23 +69,23 @@ if not os.path.isdir(save_path):
 #             os.mkdir(dst_path)
 #         copyfile(src_path, dst_path + '/' + name)
 #
-#---------------------------------------
-#train_all
-train_path = download_path + '/bounding_box_train'
-train_save_path = save_path + '/train_all'
-if not os.path.isdir(train_save_path):
-    os.mkdir(train_save_path)
-
-for root, dirs, files in os.walk(train_path, topdown=True):
-    for name in files:
-        if not name[-3:]=='jpg':
-            continue
-        ID  = name.split('_')
-        src_path = train_path + '/' + name
-        dst_path = train_save_path + '/' + ID[0]
-        if not os.path.isdir(dst_path):
-            os.mkdir(dst_path)
-        copyfile(src_path, dst_path + '/' + name)
+# #---------------------------------------
+# #train_all
+# train_path = download_path + '/bounding_box_train'
+# train_save_path = save_path + '/train_all'
+# if not os.path.isdir(train_save_path):
+#     os.mkdir(train_save_path)
+#
+# for root, dirs, files in os.walk(train_path, topdown=True):
+#     for name in files:
+#         if not name[-3:]=='jpg':
+#             continue
+#         ID  = name.split('_')
+#         src_path = train_path + '/' + name
+#         dst_path = train_save_path + '/' + ID[0]
+#         if not os.path.isdir(dst_path):
+#             os.mkdir(dst_path)
+#         copyfile(src_path, dst_path + '/' + name)
 
 
 # #---------------------------------------
