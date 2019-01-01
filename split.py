@@ -123,7 +123,7 @@ if not os.path.isdir(train_save_path):
 #for root, dirs, files in os.walk(train_path, topdown=True):
 class_list = np.array(os.listdir(train_path))
 class_count = len(class_list)
-split = np.random.choice(class_count, math.ceil(class_count * 0.1), replace=False)
+split = np.random.choice(class_count, math.ceil(class_count * 0.5), replace=False)
 for dir in class_list[split]:
     files = np.array(os.listdir(train_path + '/' + dir))
     file_count = len(files)
