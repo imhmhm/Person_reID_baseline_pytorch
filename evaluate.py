@@ -21,7 +21,7 @@ def evaluate(qf,ql,qc,gf,gl,gc):
     junk_index1 = np.argwhere(gl==-1)
     junk_index2 = np.intersect1d(query_index, camera_index)
     junk_index = np.append(junk_index2, junk_index1) #.flatten())
-    
+
     CMC_tmp = compute_mAP(index, good_index, junk_index)
     return CMC_tmp
 
@@ -34,7 +34,7 @@ def compute_mAP(index, good_index, junk_index):
         return ap,cmc
 
     # remove junk_index
-    mask = np.in1d(index, junk_index, invert=True)
+    mask = np.in1d(index, junk_index, invert=True) # numpy isin()
     index = index[mask]
 
     # find good_index index
@@ -42,7 +42,7 @@ def compute_mAP(index, good_index, junk_index):
     mask = np.in1d(index, good_index)
     rows_good = np.argwhere(mask==True)
     rows_good = rows_good.flatten()
-    
+
     cmc[rows_good[0]:] = 1
     for i in range(ngood):
         d_recall = 1.0/ngood
@@ -51,7 +51,7 @@ def compute_mAP(index, good_index, junk_index):
             old_precision = i*1.0/rows_good[i]
         else:
             old_precision=1.0
-        ap = ap + d_recall*(old_precision + precision)/2
+        ap = ap + d_recall*(old_precision + precision)/2 # area
 
     return ap, cmc
 
@@ -71,7 +71,7 @@ if multi:
     mquery_feature = m_result['mquery_f']
     mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
-    
+
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
 #print(query_label)
