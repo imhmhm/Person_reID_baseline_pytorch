@@ -8,15 +8,18 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
-#import numpy as np
+import numpy as np
 #import torchvision
 from torchvision import datasets, transforms
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-#from PIL import Image
+from PIL import Image
 import time
 import os
+import sys
+import random
+import math
 from model import ft_net, ft_net_dense, PCB
 from random_erasing import RandomErasing
 import json
@@ -39,6 +42,7 @@ parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50' )
+parser.add_argument('--mixup', action='store_true', help='use mixup' )
 opt = parser.parse_args()
 
 data_dir = opt.data_dir
@@ -61,11 +65,43 @@ if len(gpu_ids)>0:
 # ---------
 #
 
+#-------------------------------------------------------------------
+# maket-duke
+height = [0.0316, 0.05, 0.0533, 0.0383, 0.0449, 0.05, 0.05, 0.045]
+width = [0.1211, 0.1308, 0.1275, 0.099, 0.1402, 0.13, 0.14, 0.1]
+# maket/duke
+ratio = [1.3631, 1.5455, 1.2857, 1.2542, 1.4264, 1.5455, 1.2857, 1.2333] # w/h
+
+def transform_market_to_duke(img):
+    h_random = random.choice(height)
+    w_random = random.choice(width)
+    r_random = random.choice(ratio)
+    h_new = round(256 * r_random)
+    img = transforms.functional.resize(img, (h_new, 128))
+    pad_random = (math.ceil(128 * w_random / 2), math.ceil(h_new * h_random / 2))
+    img = transforms.functional.pad(img, padding=pad_random, padding_mode='reflect')
+    #img.save("test_after.png")
+    return img
+#----------------------------------------------------------------------
+# add gausian noise
+def transform_gaussian_noise(img):
+    mean = 0.0
+    std = 25.0
+    img_np = np.array(img)
+    noise_img_np = img_np + np.random.normal(mean, std, img_np.shape)
+    noise_img_np = np.uint8(np.clip(noise_img_np, 0, 255))
+    noise_img = Image.fromarray(noise_img_np)
+    #noise_img.save("./test/test_after_{}.png".format(random.choice(range(100))), "PNG")
+    return noise_img
+#------------------------------------------------------------------------
+
 transform_train_list = [
         #transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256,128), interpolation=3),
-        #transforms.Resize((288,144), interpolation=3),
-        transforms.Pad(10),
+        #transforms.Lambda(lambda x: transform_market_to_duke(x)),
+        #transforms.Lambda(lambda x: transform_gaussian_noise(x)),
+        transforms.Resize((288,144), interpolation=3),
+        #transforms.Pad(10),
         transforms.RandomCrop((256,128)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -123,7 +159,7 @@ class_names = image_datasets['train'].classes
 use_gpu = torch.cuda.is_available()
 
 since = time.time()
-inputs, classes = next(iter(dataloaders['train']))
+#inputs, classes = next(iter(dataloaders['train']))
 print(time.time()-since)
 ######################################################################
 # Training the model
@@ -145,6 +181,32 @@ y_err = {}
 y_err['train'] = []
 y_err['val'] = []
 
+########################################################################
+# mixup
+# dataloading
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+# criterion
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+########################################################################
+#train
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
@@ -182,6 +244,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     inputs, labels = Variable(inputs), Variable(labels)
 
+                if opt.mixup:
+                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -189,7 +254,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 outputs = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
-                    loss = criterion(outputs, labels)
+                    if opt.mixup:
+                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                    else:
+                        loss = criterion(outputs, labels)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)

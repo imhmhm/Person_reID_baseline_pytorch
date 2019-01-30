@@ -180,12 +180,12 @@ if opt.multi:
 # Load Collected data Trained model
 print('-------test-----------')
 if opt.use_dense:
-    model_structure = ft_net_dense(len(train_class_names))
+    model_structure = ft_net_dense(751)
 else:
-    model_structure = ft_net(len(train_class_names))
+    model_structure = ft_net(751)
 
 if opt.PCB:
-    model_structure = PCB(len(train_class_names))
+    model_structure = PCB(751)
 
 model = load_network(model_structure)
 

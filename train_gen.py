@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
-#import numpy as np
+import numpy as np
 #import torchvision
 from torchvision import datasets, transforms
 ####################################
@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 #from PIL import Image
 import time
 import os
+import sys
 from model import ft_net, ft_net_dense, PCB
 from random_erasing import RandomErasing
 import json
@@ -36,6 +37,7 @@ parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--name',default='ft_ResNet50', type=str, help='output model name')
 parser.add_argument('--data_dir',default='/home/tianlab/hengheng/reid/Market/pytorch',type=str, help='training dir path')
+parser.add_argument('--gen_name',default='gen_train_reid',type=str, help='generated training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data' )
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training' )
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -44,9 +46,12 @@ parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50' )
+parser.add_argument('--mixup', action='store_true', help='use mixup' )
+parser.add_argument('--resume', action='store_true', help='resume training' )
 opt = parser.parse_args()
 
 data_dir = opt.data_dir
+gen_name = opt.gen_name
 name = opt.name
 str_ids = opt.gpu_ids.split(',')
 gpu_ids = []
@@ -69,8 +74,8 @@ if len(gpu_ids)>0:
 transform_train_list = [
         #transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256,128), interpolation=3),
-        #transforms.Resize((288,144), interpolation=3),
-        transforms.Pad(10),
+        transforms.Resize((288,144), interpolation=3),
+        #transforms.Pad(10),
         transforms.RandomCrop((256,128)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -175,7 +180,7 @@ if opt.train_all:
 image_datasets = {}
 
 real_datasets = genDataset(os.path.join(data_dir, 'train' + train_all), data_transforms['train'], flag=0)
-gen_datasets = genDataset(os.path.join(data_dir, 'gen_train'), data_transforms['train'], flag=1)
+gen_datasets = genDataset(os.path.join(data_dir, gen_name), data_transforms['train'], flag=1)
 image_datasets['train'] = ConcatDataset([real_datasets, gen_datasets])
 
 image_datasets['val'] = genDataset(os.path.join(data_dir, 'val'), data_transforms['val'], flag=0)
@@ -184,12 +189,16 @@ dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.
                                              shuffle=True, num_workers=8) # 8 workers may work faster
               for x in ['train', 'val']}
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
-class_names = real_datasets.classes
+class_names = gen_datasets.classes
+
+# print(image_datasets['train'].__getitem__(12937))
+# print(gen_datasets.class_to_idx)
+# sys.exit()
 
 use_gpu = torch.cuda.is_available()
 
 since = time.time()
-inputs, classes, flags = next(iter(dataloaders['train']))
+# inputs, classes, flags = next(iter(dataloaders['train']))
 print(time.time()-since)
 ######################################################################
 # Training the model
@@ -211,13 +220,43 @@ y_err = {}
 y_err['train'] = []
 y_err['val'] = []
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+########################################################################
+# mixup
+# dataloading
+def mixup_data(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+# criterion
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+########################################################################
+# train
+def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=0):
     since = time.time()
 
     #best_model_wts = model.state_dict()
     #best_acc = 0.0
 
-    for epoch in range(num_epochs):
+    if opt.resume:
+        start = re_epoch
+    else:
+        start = 0
+    for epoch in range(start, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
@@ -249,6 +288,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     inputs, labels, flags = Variable(inputs), Variable(labels), Variable(flags)
 
+                if opt.mixup:
+                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=1.0, use_cuda=use_gpu)
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -256,7 +298,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 outputs = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
-                    loss = criterion(outputs, labels, flags)
+                    if opt.mixup:
+                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                    else:
+                        loss = criterion(outputs, labels, flags)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -339,6 +384,14 @@ def save_network(network, epoch_label):
     if torch.cuda.is_available():
         network.cuda(gpu_ids[0])
 
+########################################################################
+# load model
+#-------------------------------
+def load_network(network):
+    epoch = 59
+    save_path = os.path.join('./model',name,'net_{}.pth'.format(epoch))
+    network.load_state_dict(torch.load(save_path))
+    return network, epoch
 
 ######################################################################
 # Finetuning the convnet
@@ -355,13 +408,16 @@ else:
 if opt.PCB:
     model = PCB(len(class_names))
 
+if opt.resume:
+    model, re_epoch = load_network(model)
+
 print(model)
 
 if use_gpu:
     model = model.cuda()
 
-#criterion = nn.CrossEntropyLoss()
-criterion = LSR_loss()
+criterion = nn.CrossEntropyLoss()
+#criterion = LSR_loss()
 
 if not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters() )) + list(map(id, model.classifier.parameters() ))
@@ -417,4 +473,4 @@ with open('%s/opts.json'%dir_name,'w') as fp:
     json.dump(vars(opt), fp, indent=1)
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=100)
+                       num_epochs=100, re_epoch=re_epoch)
