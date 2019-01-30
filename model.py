@@ -26,7 +26,7 @@ def weights_init_classifier(m):
 # Defines the new fc layer and classification layer
 # |--Linear--|--bn--|--relu--|--Linear--|
 class ClassBlock(nn.Module):
-    def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True, return_f = False):
+    def __init__(self, input_dim, class_num, droprate, relu=True, bnorm=True, num_bottleneck=512, linear=True, return_f = False):
         super(ClassBlock, self).__init__()
         self.return_f = return_f
         add_block = []
@@ -136,7 +136,7 @@ class ft_net_middle(nn.Module):
 
 # Part Model proposed in Yifan Sun etal. (2018)
 class PCB(nn.Module):
-    def __init__(self, class_num ):
+    def __init__(self, class_num):
         super(PCB, self).__init__()
 
         self.part = 6 # We cut the pool5 to 6 parts
@@ -150,7 +150,7 @@ class PCB(nn.Module):
         # define 6 classifiers
         for i in range(self.part):
             name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5, relu=False, bnorm=True, num_bottleneck=256))
+            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5, relu=True, bnorm=True, num_bottleneck=256))
 
     def forward(self, x):
         x = self.model.conv1(x)

@@ -4,4 +4,8 @@
 
 python train_gen.py --gpu_ids 0 \
                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --name ft_ResNet50_gen_e0.4_2v_norelu --train_all --batchsize 32
+                    --gen_name gen_train_reid_picked \
+                    --name ft_ResNet50_mixup_picked --train_all --batchsize 32 \
+                    --mixup \
+                    --resume \
+                    #--PCB \
