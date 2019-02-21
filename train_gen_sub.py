@@ -52,7 +52,6 @@ parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
@@ -177,7 +176,7 @@ class LSR_loss(nn.Module):
         maxRow = maxRow.unsqueeze(1)
         input.data = input.data - maxRow
 
-        epsilon = opt.eps  # 0.4  # follow PT-GAN
+        epsilon = 0.4  # follow PT-GAN
         # epsilon = 0.3
         # epsilon = 1.0 # LSRO
         target = target.view(-1, 1)       # batchsize, 1
