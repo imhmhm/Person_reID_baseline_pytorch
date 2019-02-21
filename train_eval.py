@@ -9,6 +9,7 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 # from torch.autograd import Variable
 # import torchvision
+from torchvision.datasets.folder import default_loader
 from torchvision import datasets, transforms
 from torch.utils.data.sampler import Sampler
 
@@ -41,6 +42,8 @@ parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
 parser.add_argument('--data_dir', default='/home/tianlab/hengheng/reid/Market/pytorch', type=str,
                     help='training dir path')
+parser.add_argument('--eval_name', default='gen_train_reid', type=str, help='generated eval dir path')
+parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -224,36 +227,59 @@ class GenSampler(Sampler):
     def __len__(self):
         return self.length
 
+####################################################################
+# dataset with generated smaples
+
+
+class evalDataset(datasets.ImageFolder):
+    def __init__(self, root, transform=None, target_transform=None, loader=default_loader):
+        super(evalDataset, self).__init__(root, transform=transform,
+                                          target_transform=target_transform, loader=loader)
+
+    def __getitem__(self, index):
+        # if os.path.basename(self.root) == "train_all":
+        #     self.flag = 0
+        # elif os.path.basename(self.root) == "gen_train":
+        #     self.flag = 1
+        # else:
+        #     self.flag = 0
+        # fpath, _ = super(evalDataset, self).imgs[index]
+        inputs, labels = super(evalDataset, self).__getitem__(index)
+        fpaths, _ = self.imgs[index]
+        return inputs, labels, fpaths
 #####################################################################
 # dataset
 
 
 image_datasets = {}
-image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train' + train_all),
-                                               data_transforms['train'])
-image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
-                                             data_transforms['val'])
-
+image_datasets['val'] = evalDataset(os.path.join(data_dir, opt.eval_name),
+                                    data_transforms['val'])
 dataloaders = dict()
-# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
-#                                                    num_workers=8, drop_last=True)
-dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
-                                                   sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
-                                                   num_workers=8, drop_last=True)
-
-dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
+dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=opt.batchsize, shuffle=False, num_workers=8,
                                                  drop_last=True)
 
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+dataset_sizes = {x: len(image_datasets[x]) for x in ['val']}
 
-class_names = image_datasets['train'].classes
-cls2idx = image_datasets['train'].class_to_idx
+# path = image_datasets['val'].imgs
+# print(path)
+cls2idx = image_datasets['val'].class_to_idx
 
 use_gpu = torch.cuda.is_available()
 
 # since = time.time()
 # inputs, classes = next(iter(dataloaders['train']))
 # print(time.time() - since)
+######################################################################
+# Load model
+# ---------------------------
+
+
+def load_network(network):
+    save_path = os.path.join('./model', name, 'net_%s.pth' % opt.which_epoch)
+    network.load_state_dict(torch.load(save_path))
+    return network
+
+
 ######################################################################
 # Training the model
 # ------------------
@@ -305,7 +331,7 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 # train
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, num_epochs=1):
 
     since = time.time()
 
@@ -317,19 +343,16 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                scheduler.step()
-                model.train(True)  # Set model to training mode
-            else:
-                model.train(False)  # Set model to evaluate mode
+        for phase in ['val']:
+
+            model.train(False)  # Set model to evaluate mode
 
             running_loss = 0.0
             running_corrects = 0.0
             # Iterate over data.
             for data in tqdm.tqdm(dataloaders[phase]):
                 # get the inputs
-                inputs, labels = data
+                inputs, labels, fpaths = data
                 now_batch_size, c, h, w = inputs.shape
 
                 # print(inputs.shape)
@@ -337,7 +360,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if use_gpu:
                     inputs = inputs.cuda()
                     labels = labels.cuda()
-                    # print(labels)
+                    # print(fpaths)
                     # sys.exit()
                 else:
                     inputs, labels = inputs, labels
@@ -346,41 +369,48 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
 
                 # zero the parameter gradients
-                optimizer.zero_grad()
+                # optimizer.zero_grad()
 
-                # forward
-                outputs = model(inputs)
-                if not opt.PCB:
-                    _, preds = torch.max(outputs.data, 1)
-                    if opt.mixup:
-                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                # eval
+                with torch.no_grad():
+                    outputs = model(inputs)
+                    if not opt.PCB:
+                        _, preds = torch.max(outputs.data, 1)
+                        if opt.mixup:
+                            loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                        else:
+                            loss = criterion(outputs, labels)
                     else:
-                        loss = criterion(outputs, labels)
-                else:
-                    part = {}
-                    sm = nn.Softmax(dim=1)
-                    num_part = 6
-                    for i in range(num_part):
-                        part[i] = outputs[i]
+                        part = {}
+                        sm = nn.Softmax(dim=1)
+                        num_part = 6
+                        for i in range(num_part):
+                            part[i] = outputs[i]
 
-                    score = sm(part[0]) + sm(part[1]) + sm(part[2]) + sm(part[3]) + sm(part[4]) + sm(part[5])
-                    _, preds = torch.max(score, 1)
+                        score = sm(part[0]) + sm(part[1]) + sm(part[2]) + sm(part[3]) + sm(part[4]) + sm(part[5])
+                        _, preds = torch.max(score, 1)
 
-                    loss = criterion(part[0], labels)
-                    for i in range(num_part - 1):
-                        loss += criterion(part[i + 1], labels)
+                        loss = criterion(part[0], labels)
+                        for i in range(num_part - 1):
+                            loss += criterion(part[i + 1], labels)
 
-                # backward + optimize only if in training phase
-                if phase == 'train':
-                    loss.backward()
-                    optimizer.step()
+                    # statistics
+                    # if preds[0] != labels[0]:
+                    #     copyfile(fpaths[0], os.path.join(data_dir, 'wrong', os.path.basename(fpaths[0])))
+                    fpaths = np.array(fpaths)
+                    preds_np = preds.cpu().numpy()
+                    labels_np = labels.cpu().numpy()
+                    # print(preds_np)
+                    # print(labels_np)
+                    # sys.exit()
+                    for f_wrong in fpaths[preds_np != labels_np]:
+                        copyfile(f_wrong, os.path.join(data_dir, 'wrong', os.path.basename(f_wrong)))
 
-                # statistics
-                if int(version[0]) > 0 or int(version[2]) > 3:  # for the new version like 0.4.0, 0.5.0 and 1.0.0
-                    running_loss += loss.item() * now_batch_size
-                else:  # for the old version like 0.3.0 and 0.3.1
-                    running_loss += loss.data[0] * now_batch_size
-                running_corrects += float(torch.sum(preds == labels))
+                    if int(version[0]) > 0 or int(version[2]) > 3:  # for the new version like 0.4.0, 0.5.0 and 1.0.0
+                        running_loss += loss.item() * now_batch_size
+                    else:  # for the old version like 0.3.0 and 0.3.1
+                        running_loss += loss.data[0] * now_batch_size
+                    running_corrects += float(torch.sum(preds == labels))
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
@@ -391,11 +421,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0 - epoch_acc)
             # deep copy the model
-            if phase == 'val':
-                last_model_wts = model.state_dict()
-                if epoch % 10 == 9:
-                    save_network(model, epoch)
-                draw_curve(epoch)
+            # if phase == 'val':
+            #     last_model_wts = model.state_dict()
+            #     if epoch % 10 == 9:
+            #         pass
+            #         #save_network(model, epoch)
+            #     #draw_curve(epoch)
 
         print()
 
@@ -405,8 +436,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     # print('Best val Acc: {:4f}'.format(best_acc))
 
     # load best model weights
-    model.load_state_dict(last_model_wts)
-    save_network(model, 'last')
+    # model.load_state_dict(last_model_wts)
+    # save_network(model, 'last')
     return model
 
 
@@ -450,14 +481,16 @@ def save_network(network, epoch_label):
 #
 
 if opt.use_dense:
-    model = ft_net_dense(len(class_names), opt.droprate)
+    model_structure = ft_net_dense(751, opt.droprate)
 else:
-    model = ft_net(len(class_names), opt.droprate)
+    model_structure = ft_net(751, opt.droprate)
 
 if opt.PCB:
-    model = PCB(len(class_names))
+    model_structure = PCB(751)
 
-print(model)
+# print(model_structure)
+model = load_network(model_structure)
+model = model.eval()
 
 if use_gpu:
     model = model.cuda()
@@ -519,4 +552,4 @@ with open('%s/opts.json' % dir_name, 'w') as fp:
     json.dump(vars(opt), fp, indent=1)
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=100)
+                    num_epochs=1)

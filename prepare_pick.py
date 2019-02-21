@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import numpy as np
 from shutil import copyfile
 
@@ -107,64 +108,69 @@ if not os.path.isdir(save_path):
 #             os.mkdir(dst_path)
 #         copyfile(src_path, dst_path + '/' + name)
 
-#---------------------------------------
-#gen_train
-train_path = download_path + '/pytorch/gen_train_reid'
-train_save_path = download_path + '/pytorch/gen_train_reid_picked'
+# ---------------------------------------
+# gen_train
+train_path = download_path + '/pytorch/train_gen_7p_v1_4v'
+train_save_path = download_path + '/pytorch/gen_train_7p_v1_view0s'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 
-# for root, dirs, files in os.walk(train_path, topdown=True):
-#     f = np.array(files)
-#     l = len(f)
-#     if l == 0:
-#         continue
-#
-#     f_list = np.random.choice(l, (l // 3 * 2), replace=False)
-#     for name in f[f_list]:
-#         if not name[-3:]=='png':
-#             continue
-#         ID  = name.split('_')
-#         src_path = train_path + '/' + ID[0] + '/' + name
-#         dst_path = train_save_path + '/' + ID[0]
-#         if not os.path.isdir(dst_path):
-#             os.mkdir(dst_path)
-#         copyfile(src_path, dst_path + '/' + name)
-
-
 for root, dirs, files in os.walk(train_path, topdown=True):
     f = np.array(files)
-    len_3 = len(f)
-    len_ori = len_3 // 3
-    #print(len_ori)
-    if len_ori >= 34:
-        dst_path = train_save_path + '/' + root[-4:]
-        os.mkdir(dst_path)
-    elif len_ori < 34 and len_3 + len_ori >=34:
-        f_list = np.random.choice(len_3, (34-len_ori), replace=False)
-        for name in f[f_list]:
-            if not name[-3:]=='png':
-                continue
-            ID  = name.split('_')
-            src_path = train_path + '/' + ID[0] + '/' + name
-            dst_path = train_save_path + '/' + ID[0]
-            if not os.path.isdir(dst_path):
-                os.mkdir(dst_path)
-            copyfile(src_path, dst_path + '/' + name)
-    else:
-        for name in f:
-            if not name[-3:]=='png':
-                continue
-            ID  = name.split('_')
-            src_path = train_path + '/' + ID[0] + '/' + name
-            dst_path = train_save_path + '/' + ID[0]
-            if not os.path.isdir(dst_path):
-                os.mkdir(dst_path)
-            copyfile(src_path, dst_path + '/' + name)
+    f = f[[x[-5] != '0' for x in f]]
+    l = len(f)
+    if l == 0:
+        continue
+
+    f_list = np.random.choice(l, math.ceil(l / 3), replace=False)
+    for name in f[f_list]:
+        if not name[-3:] == 'png':
+            continue
+        ID = name.split('_')
+        src_path = train_path + '/' + ID[0] + '/' + name
+        dst_path = train_save_path + '/' + ID[0]
+        if not os.path.isdir(dst_path):
+            os.mkdir(dst_path)
+        copyfile(src_path, dst_path + '/' + name)
 
 
-#---------------------------------------
-#gen_query
+# for root, dirs, files in os.walk(train_path, topdown=True):
+#     f = np.array(files)
+#     f = f[[x[-5] != '0' for x in f]]
+#     len_views = len(f)
+#     print(len_views)
+#     len_ori = len_views // 9
+#     #print(len_ori)
+#     if len_ori >= 12:
+#         dst_path = train_save_path + '/' + root[-4:]
+#         os.mkdir(dst_path)
+#     elif len_ori < 12 and len_views + len_ori >=12:
+#         f_list = np.random.choice(len_views, (12-len_ori), replace=False)
+#         for name in f[f_list]:
+#             if not name[-3:]=='png':
+#                 continue
+#             # if not name[-4]=='0':
+#             #     continue
+#             ID  = name.split('_')
+#             src_path = train_path + '/' + ID[0] + '/' + name
+#             dst_path = train_save_path + '/' + ID[0]
+#             if not os.path.isdir(dst_path):
+#                 os.mkdir(dst_path)
+#             copyfile(src_path, dst_path + '/' + name)
+#     else:
+#         for name in f:
+#             if not name[-3:]=='png':
+#                 continue
+#             ID  = name.split('_')
+#             src_path = train_path + '/' + ID[0] + '/' + name
+#             dst_path = train_save_path + '/' + ID[0]
+#             if not os.path.isdir(dst_path):
+#                 os.mkdir(dst_path)
+#             copyfile(src_path, dst_path + '/' + name)
+#
+
+# ---------------------------------------
+# gen_query
 # train_path = download_path + '/gen/test_gen_seg'
 # train_save_path = download_path + '/pytorch/gen_query'
 # if not os.path.isdir(train_save_path):

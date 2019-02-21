@@ -105,18 +105,18 @@ if not os.path.isdir(save_path):
 #             os.mkdir(dst_path)
 #         copyfile(src_path, dst_path + '/' + name)
 
-#---------------------------------------
-#gen_train
-train_path = download_path + '/gen/gen_train_reid'
-train_save_path = download_path + '/pytorch/gen_train_reid'
+# ---------------------------------------
+# gen_train
+train_path = download_path + '/gen/train_gen_7p_v1_4v'
+train_save_path = download_path + '/pytorch/train_gen_7p_v1_4v'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 
 for root, dirs, files in os.walk(train_path, topdown=True):
     for name in files:
-        if not name[-3:]=='png':
+        if not name[-3:] == 'png':
             continue
-        ID  = name.split('_')
+        ID = name.split('_')
         src_path = train_path + '/' + name
         dst_path = train_save_path + '/' + ID[0]
         if not os.path.isdir(dst_path):
@@ -124,23 +124,23 @@ for root, dirs, files in os.walk(train_path, topdown=True):
         copyfile(src_path, dst_path + '/' + name)
 
 
-#---------------------------------------
-#gen_query
-# train_path = download_path + '/gen/test_gen_seg'
+# ---------------------------------------
+# gen_query
+# train_path = download_path + '/gen/query_gen_seg_branch_4v'
 # train_save_path = download_path + '/pytorch/gen_query'
 # if not os.path.isdir(train_save_path):
 #     os.mkdir(train_save_path)
 #
 # for root, dirs, files in os.walk(train_path, topdown=True):
 #     for name in files:
-#         if not name[-3:]=='png':
+#         if not name[-3:] == 'png':
 #             continue
-#         ID  = name.split('_')
+#         ID = name.split('_')
 #         src_path = train_path + '/' + name
 #         dst_path = train_save_path + '/' + ID[0]
 #         if not os.path.isdir(dst_path):
 #             os.mkdir(dst_path)
 #         copyfile(src_path, dst_path + '/' + name)
+#
 
-
-#---------------------------------------
+# ---------------------------------------
