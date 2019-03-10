@@ -231,15 +231,17 @@ class GenSampler(Sampler):
 image_datasets = {}
 image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train' + train_all),
                                                data_transforms['train'])
+image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'gen_train_7p_v1_x1'),
+                                               data_transforms['train'])
 image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
                                              data_transforms['val'])
 
 dataloaders = dict()
-# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
-#                                                    num_workers=8, drop_last=True)
-dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
-                                                   sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
+dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
                                                    num_workers=8, drop_last=True)
+# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
+#                                                    sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
+#                                                    num_workers=8, drop_last=True)
 
 dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
                                                  drop_last=True)

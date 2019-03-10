@@ -94,6 +94,34 @@ class ft_net(nn.Module):
         x = self.classifier(x)
         return x
 
+
+class ft_net_sub(nn.Module):
+
+    def __init__(self, class_num, droprate=0.5):
+        super(ft_net, self).__init__()
+        model_ft = models.resnet50(pretrained=True)
+        # avg pooling to global pooling
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.model = model_ft
+        # self.classifier = ClassBlock(2048, class_num, droprate)
+        self.classifier_reid = ClassBlock(2048, class_num, droprate, relu=True)
+        self.classifier_gen = ClassBlock(2048, 2, droprate, relu=True)
+
+    def forward(self, x):
+        x = self.model.conv1(x)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+        x = self.model.layer1(x)
+        x = self.model.layer2(x)
+        x = self.model.layer3(x)
+        x = self.model.layer4(x)
+        x = self.model.avgpool(x)
+        x = x.view(x.size(0), x.size(1))
+        id = self.classifier_reid(x)
+        gen = self.classifier_gen(x)
+        return id, gen
+
 # Define the DenseNet121-based Model
 
 

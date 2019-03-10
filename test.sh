@@ -1,6 +1,6 @@
 python test.py \
-       --name ft_ResNet50_b128_spl_32x4_re0.5 \
-       --test_dir /home/tianlab/hengheng/reid/DukeMTMC-reID/pytorch \
+       --name ft_ResNet50_b32_gen \
+       --test_dir /home/tianlab/hengheng/reid/Market/pytorch \
        --which_epoch 99;
        # --multi \
        # --PCB \
