@@ -15,7 +15,7 @@ import copy
 import random
 ###############################################
 from random_erasing import RandomErasing
-from model import ft_net, ft_net_dense, PCB
+from model import ft_net_sub, ft_net_dense, PCB
 ###############################################
 import torch
 import torch.nn as nn
@@ -52,6 +52,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
@@ -176,7 +177,7 @@ class LSR_loss(nn.Module):
         maxRow = maxRow.unsqueeze(1)
         input.data = input.data - maxRow
 
-        epsilon = 0.4  # follow PT-GAN
+        epsilon = opt.eps  # follow PT-GAN
         # epsilon = 0.3
         # epsilon = 1.0 # LSRO
         target = target.view(-1, 1)       # batchsize, 1
@@ -479,19 +480,20 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                 optimizer.zero_grad()
 
                 # forward
-                outputs = model(inputs)
+                outputs_id, outputs_gen = model(inputs)
                 if not opt.PCB:
-                    _, preds = torch.max(outputs.data, 1)
+                    _, preds = torch.max(outputs_id.data, 1)
                     if opt.mixup:
-                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                        loss = mixup_criterion(criterion, outputs_id, targets_a, targets_b, lam)
                     else:
-                        loss = criterion(outputs, labels, flags)
+                        loss = criterion(outputs_id, labels, flags)
+                        loss += nn.CrossEntropyLoss(outputs_gen, flags)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
                     num_part = 6
                     for i in range(num_part):
-                        part[i] = outputs[i]
+                        part[i] = outputs_id[i]
 
                     score = sm(part[0]) + sm(part[1]) + sm(part[2]) + \
                         sm(part[3]) + sm(part[4]) + sm(part[5])
@@ -594,7 +596,7 @@ def load_network(network):
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
 else:
-    model = ft_net(len(class_names), opt.droprate)
+    model = ft_net_sub(len(class_names), opt.droprate)
 
 if opt.PCB:
     model = PCB(len(class_names))
@@ -612,12 +614,14 @@ criterion = LSR_loss()
 
 if not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + \
-                     list(map(id, model.classifier.parameters()))
+                     list(map(id, model.classifier_reid.parameters())) + \
+                     list(map(id, model.classifier_gen.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
              {'params': base_params, 'lr': 0.1*opt.lr},
              {'params': model.model.fc.parameters(), 'lr': opt.lr},
-             {'params': model.classifier.parameters(), 'lr': opt.lr}
+             {'params': model.classifier_reid.parameters(), 'lr': opt.lr},
+             {'params': model.classifier_gen.parameters(), 'lr': opt.lr}
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters()))
@@ -658,7 +662,7 @@ dir_name = os.path.join('./model', name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 # record every run
-copyfile('./train.py', dir_name+'/train.py')
+copyfile('./train_gen_sub.py', dir_name+'/train_gen_sub.py')
 copyfile('./model.py', dir_name+'/model.py')
 
 # save opts
