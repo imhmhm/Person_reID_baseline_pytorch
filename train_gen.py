@@ -239,14 +239,16 @@ class GenSampler(Sampler):
             num_real = len(self.index_dic_real[pid])
             num_gen = len(self.index_dic_gen[pid])
             # num = len(idxs_real)
-            if num_real < self.real:
-                num_real = self.real
-            self.length += num_real - num_real % self.real
-            self.length += (num_real - num_real % self.real) // self.real * self.gen
-            # if num_gen < self.gen:
-            #     num_gen = self.gen
-            # self.length += num_gen - num_gen % self.gen
-            # self.length += (num_gen - num_gen % self.gen) // self.gen * self.real
+            if self.real >= self.gen:
+                if num_real < self.real:
+                    num_real = self.real
+                self.length += num_real - num_real % self.real
+                self.length += (num_real - num_real % self.real) // self.real * self.gen
+            else:
+                if num_gen < self.gen:
+                    num_gen = self.gen
+                self.length += num_gen - num_gen % self.gen
+                self.length += (num_gen - num_gen % self.gen) // self.gen * self.real
 
     def __iter__(self):
         batch_idxs_dict_real = defaultdict(list)
@@ -280,8 +282,8 @@ class GenSampler(Sampler):
 
         final_idxs = []
 
-        print(batch_idxs_dict_gen)
-        sys.exit()
+        # print(batch_idxs_dict_gen)
+        # sys.exit()
         while len(avai_pids) >= self.num_pids_per_batch:
             selected_pids = random.sample(avai_pids, self.num_pids_per_batch)
             for pid in selected_pids:
@@ -289,7 +291,11 @@ class GenSampler(Sampler):
                 final_idxs.extend(batch_idxs)
                 batch_idxs = batch_idxs_dict_gen[pid].pop(0)
                 final_idxs.extend(batch_idxs)
-                if len(batch_idxs_dict_real[pid]) == 0:
+                if self.real >= self.gen:
+                    remaining = len(batch_idxs_dict_real[pid])
+                else:
+                    remaining = len(batch_idxs_dict_gen[pid])
+                if remaining == 0:
                     avai_pids.remove(pid)
 
         return iter(final_idxs)
