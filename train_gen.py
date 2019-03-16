@@ -15,7 +15,7 @@ import copy
 import random
 ###############################################
 from random_erasing import RandomErasing
-from model import ft_net, ft_net_dense, PCB
+from model import ft_net, ft_net_feature, ft_net_dense, PCB
 ###############################################
 import torch
 import torch.nn as nn
@@ -30,11 +30,12 @@ from torch.utils.data import DataLoader, ConcatDataset  # Dataset
 from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
 ################################################
+from hard_mine_triplet_loss import TripletLoss
+# from hard_mine_multiple_loss import TripletLoss
 # from PIL import Image
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
-
 
 version = torch.__version__
 
@@ -56,6 +57,8 @@ parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+parser.add_argument('--triplet', action='store_true', help='use triplet loss')
+parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--resume', action='store_true', help='resume training')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--prop_real', default=2, type=int, help='ratio of real images per id in a batch')
@@ -239,9 +242,11 @@ class GenSampler(Sampler):
             if num_real < self.real:
                 num_real = self.real
             self.length += num_real - num_real % self.real
-            if num_gen < self.gen:
-                num_gen = self.gen
-            self.length += num_gen - num_gen % self.gen
+            self.length += (num_real - num_real % self.real) // self.real * self.gen
+            # if num_gen < self.gen:
+            #     num_gen = self.gen
+            # self.length += num_gen - num_gen % self.gen
+            # self.length += (num_gen - num_gen % self.gen) // self.gen * self.real
 
     def __iter__(self):
         batch_idxs_dict_real = defaultdict(list)
@@ -275,6 +280,8 @@ class GenSampler(Sampler):
 
         final_idxs = []
 
+        print(batch_idxs_dict_gen)
+        sys.exit()
         while len(avai_pids) >= self.num_pids_per_batch:
             selected_pids = random.sample(avai_pids, self.num_pids_per_batch)
             for pid in selected_pids:
@@ -360,9 +367,9 @@ image_datasets['val'] = genDataset(os.path.join(data_dir, 'val'), data_transform
 dataloaders = {}
 dataloaders['train'] = DataLoader(image_datasets['train'], batch_size=opt.batchsize,
                                   sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id, proportion),
-                                  num_workers=8)  # 8 workers may work faster
-dataloaders['val'] = DataLoader(image_datasets['val'], batch_size=16,
-                                shuffle=True, num_workers=0)  # 8 workers may work faster
+                                  num_workers=8, drop_last=True)  # 8 workers may work faster
+dataloaders['val'] = DataLoader(image_datasets['val'], batch_size=8,
+                                shuffle=True, num_workers=0, drop_last=True)  # 8 workers may work faster
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 class_names = gen_datasets.classes
@@ -480,11 +487,19 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                 optimizer.zero_grad()
 
                 # forward
-                outputs = model(inputs)
+                if opt.triplet:
+                    features, outputs = model(inputs)
+                else:
+                    outputs = model(inputs)
+
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
                     if opt.mixup:
                         loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                    elif opt.triplet:
+                        loss_xent = criterion(outputs, labels, flags)
+                        loss_htri = criterion_htri(features, labels, flags, epoch)
+                        loss = 1.0 * loss_xent + 0.5 * loss_htri
                     else:
                         loss = criterion(outputs, labels, flags)
                 else:
@@ -511,11 +526,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                 # for the new version like 0.4.0, 0.5.0 and 1.0.0
                 if int(version[0]) > 0 or int(version[2]) > 3:
                     running_loss += loss.item() * now_batch_size
+                    if opt.triplet:
+                        running_loss_xent += loss_xent.item() * now_batch_size
+                        running_loss_htri += loss_htri.item() * now_batch_size
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
                 running_corrects += float(torch.sum(preds == labels.data))
 
             epoch_loss = running_loss / dataset_sizes[phase]
+            if opt.triplet:
+                epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
+                epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
+                print('{} loss_xent: {:.4f} loss_tri: {:.4f}'.format(phase, epoch_loss_xent, epoch_loss_tri))
             epoch_acc = running_corrects / dataset_sizes[phase]
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
@@ -594,6 +616,8 @@ def load_network(network):
 
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
+elif opt.triplet:
+    model = ft_net_feature(len(class_names), opt.droprate)
 else:
     model = ft_net(len(class_names), opt.droprate)
 
@@ -610,8 +634,17 @@ if use_gpu:
 
 # criterion = nn.CrossEntropyLoss()
 criterion = LSR_loss()
+criterion_htri = TripletLoss()
 
-if not opt.PCB:
+
+if opt.adam:
+    lr = 0.0003
+    adam_beta1 = 0.9
+    adam_beta2 = 0.999
+    weight_decay = 5e-4
+    optimizer_ft = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay,
+                            betas=(adam_beta1, adam_beta2))
+elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + \
                      list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -647,7 +680,7 @@ else:
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=30, gamma=0.1)
 
 ######################################################################
 # Train and evaluate
@@ -659,7 +692,7 @@ dir_name = os.path.join('./model', name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 # record every run
-copyfile('./train.py', dir_name+'/train.py')
+copyfile('./train_gen.py', dir_name+'/train_gen.py')
 copyfile('./model.py', dir_name+'/model.py')
 
 # save opts

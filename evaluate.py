@@ -89,7 +89,7 @@ for i in range(len(query_label)):
 CMC = CMC.float()
 CMC = CMC/len(query_label)  # average CMC
 print('Rank@1:%f Rank@5:%f Rank@10:%f mAP:%f' % (CMC[0], CMC[4], CMC[9], ap/len(query_label)))
-file = open('result.txt', 'a')
+file = open('result_reid.txt', 'a')
 file.writelines('%f, %f, %f, %f \n' % (CMC[0], CMC[4], CMC[9], ap/len(query_label)))
 file.close()
 

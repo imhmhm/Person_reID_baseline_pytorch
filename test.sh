@@ -1,7 +1,7 @@
 python test.py \
-       --name ft_ResNet50_b32_gen \
-       --test_dir /home/tianlab/hengheng/reid/Market/pytorch \
-       --which_epoch 99;
+       --name ft_ResNet50_dif \
+       --test_dir /home/tianlab/hengheng/reid/DukeMTMC-reID/pytorch \
+       --which_epoch 99 \
        # --multi \
        # --PCB \
        # DukeMTMC-reID / Market

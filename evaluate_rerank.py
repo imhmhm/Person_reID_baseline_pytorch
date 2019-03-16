@@ -16,7 +16,7 @@ def evaluate(score,ql,qc,gl,gc):
     junk_index1 = np.argwhere(gl==-1)
     junk_index2 = np.intersect1d(query_index, camera_index)
     junk_index = np.append(junk_index2, junk_index1) #.flatten())
-    
+
     CMC_tmp = compute_mAP(index, good_index, junk_index)
     return CMC_tmp
 
@@ -37,7 +37,7 @@ def compute_mAP(index, good_index, junk_index):
     mask = np.in1d(index, good_index)
     rows_good = np.argwhere(mask==True)
     rows_good = rows_good.flatten()
-    
+
     cmc[rows_good[0]:] = 1
     for i in range(ngood):
         d_recall = 1.0/ngood

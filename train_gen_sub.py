@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function, division
-
-import sys
+# from __future__ import print_function, division
+# import sys
 import os
 import time
 from collections import defaultdict
@@ -487,7 +485,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                         loss = mixup_criterion(criterion, outputs_id, targets_a, targets_b, lam)
                     else:
                         loss = criterion(outputs_id, labels, flags)
-                        loss += nn.CrossEntropyLoss(outputs_gen, flags)
+                        loss += CE_criterion(outputs_gen, flags)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -609,7 +607,7 @@ print(model)
 if use_gpu:
     model = model.cuda()
 
-# criterion = nn.CrossEntropyLoss()
+CE_criterion = nn.CrossEntropyLoss()
 criterion = LSR_loss()
 
 if not opt.PCB:

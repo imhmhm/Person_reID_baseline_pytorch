@@ -22,3 +22,21 @@ python train_gen_sub.py --gpu_ids 0 \
                     --num_per_id 4 \
                     --prop_real 3 \
                     --prop_gen 1;
+
+python train_gen_sub.py --gpu_ids 0 \
+                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+                    --gen_name gen_train_7p_v4_x1 \
+                    --eps 0.4 \
+                    --name ft_ResNet50_gen_e0.4_7p_v4_b128_spl_3+1_sub --train_all --batchsize 128 \
+                    --num_per_id 4 \
+                    --prop_real 3 \
+                    --prop_gen 1;
+
+python train_gen_sub.py --gpu_ids 0 \
+                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+                    --gen_name gen_train_7p_v4_x1 \
+                    --eps 0.0 \
+                    --name ft_ResNet50_gen_e0.0_7p_v4_b128_spl_3+1_sub --train_all --batchsize 128 \
+                    --num_per_id 4 \
+                    --prop_real 3 \
+                    --prop_gen 1;

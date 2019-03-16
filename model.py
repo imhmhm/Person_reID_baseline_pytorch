@@ -95,10 +95,36 @@ class ft_net(nn.Module):
         return x
 
 
+class ft_net_feature(nn.Module):
+
+    def __init__(self, class_num, droprate=0.5):
+        super(ft_net_feature, self).__init__()
+        model_ft = models.resnet50(pretrained=True)
+        # avg pooling to global pooling
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.model = model_ft
+        self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
+        # self.classifier = ClassBlock(2048, class_num, droprate, relu=True, return_f=True)  # 512
+
+    def forward(self, x):
+        x = self.model.conv1(x)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+        x = self.model.layer1(x)
+        x = self.model.layer2(x)
+        x = self.model.layer3(x)
+        x = self.model.layer4(x)
+        x = self.model.avgpool(x)
+        feature = x.view(x.size(0), x.size(1))
+        x = self.classifier(feature)
+        return feature, x
+
+
 class ft_net_sub(nn.Module):
 
     def __init__(self, class_num, droprate=0.5):
-        super(ft_net, self).__init__()
+        super(ft_net_sub, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))

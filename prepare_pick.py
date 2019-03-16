@@ -110,8 +110,8 @@ if not os.path.isdir(save_path):
 
 # ---------------------------------------
 # gen_train
-train_path = download_path + '/pytorch/train_gen_7p_v1_4v'
-train_save_path = download_path + '/pytorch/gen_train_7p_v1_view0s'
+train_path = download_path + '/pytorch/1501_train_7p_v4_mixup'
+train_save_path = download_path + '/pytorch/gen_train_7p_v4_mixup_x1'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 
@@ -123,6 +123,7 @@ for root, dirs, files in os.walk(train_path, topdown=True):
         continue
 
     f_list = np.random.choice(l, math.ceil(l / 3), replace=False)
+    # for name in f:
     for name in f[f_list]:
         if not name[-3:] == 'png':
             continue

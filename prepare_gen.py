@@ -107,8 +107,8 @@ if not os.path.isdir(save_path):
 
 # ---------------------------------------
 # gen_train
-train_path = download_path + '/gen/train_gen_7p_v1_4v'
-train_save_path = download_path + '/pytorch/train_gen_7p_v1_4v'
+train_path = download_path + '/gen/1501_train_7p_v4_mixup'
+train_save_path = download_path + '/pytorch/1501_train_7p_v4_mixup'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 
@@ -126,8 +126,8 @@ for root, dirs, files in os.walk(train_path, topdown=True):
 
 # ---------------------------------------
 # gen_query
-# train_path = download_path + '/gen/query_gen_seg_branch_4v'
-# train_save_path = download_path + '/pytorch/gen_query'
+# train_path = download_path + '/gen/1501_query_7p_v4_4v'
+# train_save_path = download_path + '/pytorch/gen_query_7p_v4_4v'
 # if not os.path.isdir(train_save_path):
 #     os.mkdir(train_save_path)
 #
@@ -141,6 +141,6 @@ for root, dirs, files in os.walk(train_path, topdown=True):
 #         if not os.path.isdir(dst_path):
 #             os.mkdir(dst_path)
 #         copyfile(src_path, dst_path + '/' + name)
-#
+
 
 # ---------------------------------------

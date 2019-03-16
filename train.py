@@ -192,6 +192,7 @@ class GenSampler(Sampler):
             self.length += num - num % self.num_instances
 
     def __iter__(self):
+        # print('shuffle')
         batch_idxs_dict = defaultdict(list)
 
         for pid in self.pids:
@@ -214,11 +215,12 @@ class GenSampler(Sampler):
         while len(avai_pids) >= self.num_pids_per_batch:
             selected_pids = random.sample(avai_pids, self.num_pids_per_batch)
             for pid in selected_pids:
-                batch_idxs = batch_idxs_dict[pid].pop(0)
-                final_idxs.extend(batch_idxs)
+                batch_idxs_select = batch_idxs_dict[pid].pop(0)
+                final_idxs.extend(batch_idxs_select)
                 if len(batch_idxs_dict[pid]) == 0:
                     avai_pids.remove(pid)
 
+        print(len(final_idxs))
         return iter(final_idxs)
 
     def __len__(self):
@@ -237,11 +239,11 @@ image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
                                              data_transforms['val'])
 
 dataloaders = dict()
-dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
-                                                   num_workers=8, drop_last=True)
-# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
-#                                                    sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
+# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
 #                                                    num_workers=8, drop_last=True)
+dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
+                                                   sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
+                                                   num_workers=0, drop_last=True)
 
 dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
                                                  drop_last=True)
@@ -328,8 +330,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             running_loss = 0.0
             running_corrects = 0.0
+            # count = 0
             # Iterate over data.
             for data in tqdm.tqdm(dataloaders[phase]):
+                # count += 1
+                # print(count)
                 # get the inputs
                 inputs, labels = data
                 now_batch_size, c, h, w = inputs.shape

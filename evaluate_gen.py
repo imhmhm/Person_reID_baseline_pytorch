@@ -96,8 +96,8 @@ if multi:
         mquery_index2 = np.argwhere(mquery_cam==query_cam[i])
         mquery_index =  np.intersect1d(mquery_index1, mquery_index2)
         mq = np.mean(mquery_feature[mquery_index,:], axis=0)
-        q_fusion = query_feature[i] + 0.5 * mq
-        ap_tmp, CMC_tmp = evaluate(q_fusion,query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+        q_fusion = 1.25 * query_feature[i] +  0.25 * mq
+        ap_tmp, CMC_tmp = evaluate(mq,query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
         if CMC_tmp[0]==-1:
             continue
         CMC = CMC + CMC_tmp

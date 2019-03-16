@@ -183,7 +183,7 @@ if opt.use_dense:
     model_structure = ft_net_dense(len(train_class_names))
 else:
     # model_structure = ft_net(len(train_class_names))
-    model_structure = ft_net(751)  # adjust 751 for transfer
+    model_structure = ft_net(1502)  # adjust 751 for transfer
 
 if opt.PCB:
     # model_structure = PCB(len(train_class_names))
