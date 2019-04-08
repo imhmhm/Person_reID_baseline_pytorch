@@ -3,6 +3,7 @@ import torch
 import numpy as np
 #import time
 import os
+import sys
 
 #######################################################################
 # Evaluate
@@ -22,11 +23,31 @@ def evaluate(qf,ql,qc,gf,gl,gc):
     junk_index2 = np.intersect1d(query_index, camera_index)
     junk_index = np.append(junk_index2, junk_index1) #.flatten())
 
-    CMC_tmp = compute_mAP(index, good_index, junk_index)
-    return CMC_tmp
+    mask = np.in1d(index, junk_index, invert=True) # numpy isin()
+    index_mask = index[mask]
+    return index_mask, index, good_index, junk_index
 
 
-def compute_mAP(index, good_index, junk_index):
+    #CMC_tmp = compute_mAP(index, good_index, junk_index)
+    #return CMC_tmp
+
+def rank_fusion(index_1, index_2):
+    # mask = np.in1d(index_2[0:5], index_1[0:10], invert=True)
+    # remain = index_2[0:5][mask]
+    order_2 = []
+    for id in index_1:
+        idx_2 = np.argwhere(index_2 == id)
+        order_2.extend(idx_2[0])
+    order_2 = np.array(order_2)
+    order_1 = np.array(list(range(len(index_1))))
+    order_new = np.vstack([order_1, order_2])
+    rank_median = np.median(order_new, axis=0)
+    idx_median = np.argsort(rank_median)
+    # print(len(index_1[idx_median]))
+    return index_1[idx_median]
+
+
+def compute_mAP(index_mask, index, good_index, junk_index):
     ap = 0
     cmc = torch.IntTensor(len(index)).zero_()
     if good_index.size==0:   # if empty
@@ -34,12 +55,12 @@ def compute_mAP(index, good_index, junk_index):
         return ap,cmc
 
     # remove junk_index
-    mask = np.in1d(index, junk_index, invert=True) # numpy isin()
-    index = index[mask]
+    # mask = np.in1d(index, junk_index, invert=True) # numpy isin()
+    # index = index[mask]
 
     # find good_index index
     ngood = len(good_index)
-    mask = np.in1d(index, good_index)
+    mask = np.in1d(index_mask, good_index)
     rows_good = np.argwhere(mask==True)
     rows_good = rows_good.flatten()
 
@@ -72,21 +93,37 @@ if multi:
     mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
 
-CMC = torch.IntTensor(len(gallery_label)).zero_()
-ap = 0.0
-#print(query_label)
-for i in range(len(query_label)):
-    ap_tmp, CMC_tmp = evaluate(query_feature[i],query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
-    if CMC_tmp[0]==-1:
-        continue
-    CMC = CMC + CMC_tmp
-    ap += ap_tmp
-    print(i, CMC_tmp[0])
-
-CMC = CMC.float()
-CMC = CMC/len(query_label) #average CMC
-print('Rank@1:%f Rank@5:%f Rank@10:%f mAP:%f'%(CMC[0],CMC[4],CMC[9],ap/len(query_label)))
-
+# CMC = torch.IntTensor(len(gallery_label)).zero_()
+#
+# ap = 0.0
+# #print(query_label)
+# for i in range(len(query_label)):
+#     index_mask, index, good_index, junk_index = evaluate(query_feature[i],query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+#     # ap_tmp, CMC_tmp = compute_mAP(index_mask, index, good_index, junk_index)
+#
+#     mquery_index1 = np.argwhere(mquery_label==query_label[i])
+#     mquery_index2 = np.argwhere(mquery_cam==query_cam[i])
+#     mquery_index =  np.intersect1d(mquery_index1, mquery_index2)
+#     mq = np.mean(mquery_feature[mquery_index,:], axis=0)
+#
+#     q_fusion = 1.25 * query_feature[i] +  0.25 * mq
+#
+#     m_index_mask, m_index, m_good_index, m_junk_index = evaluate(mq,query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+#     new_idx = rank_fusion(index_mask, m_index_mask)
+#
+#     ap_tmp, CMC_tmp = compute_mAP(new_idx, m_index, m_good_index, m_junk_index)
+#
+#     if CMC_tmp[0]==-1:
+#         continue
+#     CMC = CMC + CMC_tmp
+#     ap += ap_tmp
+#     print(i, CMC_tmp[0])
+#
+# CMC = CMC.float()
+# CMC = CMC/len(query_label) #average CMC
+# print('Rank@1:%f Rank@5:%f Rank@10:%f mAP:%f'%(CMC[0],CMC[4],CMC[9],ap/len(query_label)))
+#
+# sys.exit()
 # multiple-query
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
@@ -97,7 +134,8 @@ if multi:
         mquery_index =  np.intersect1d(mquery_index1, mquery_index2)
         mq = np.mean(mquery_feature[mquery_index,:], axis=0)
         q_fusion = 1.25 * query_feature[i] +  0.25 * mq
-        ap_tmp, CMC_tmp = evaluate(mq,query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+        m_index_mask, m_index, m_good_index, m_junk_index = evaluate(mq,query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+        ap_tmp, CMC_tmp = compute_mAP(m_index_mask, m_index, m_good_index, m_junk_index)
         if CMC_tmp[0]==-1:
             continue
         CMC = CMC + CMC_tmp

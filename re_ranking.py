@@ -3,8 +3,8 @@
 """
 Created on Mon Jun 26 14:46:56 2017
 @author: luohao
-Modified by Houjing Huang, 2017-12-22. 
-- This version accepts distance matrix instead of raw features. 
+Modified by Houjing Huang, 2017-12-22.
+- This version accepts distance matrix instead of raw features.
 - The difference of `/` division between python 2 and 3 is handled.
 - numpy.float16 is replaced by numpy.float32 for numerical precision.
 
@@ -37,7 +37,7 @@ def k_reciprocal_neigh( initial_rank, i, k1):
     fi = np.where(backward_k_neigh_index==i)[0]
     return forward_k_neigh_index[fi]
 
-def re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.3):
+def re_ranking(q_g_dist, q_q_dist, g_g_dist, k1=20, k2=6, lambda_value=0.0):
     # The following naming, e.g. gallery_num, is different from outer scope.
     # Don't care about it.
     original_dist = np.concatenate(

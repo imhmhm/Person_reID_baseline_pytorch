@@ -9,7 +9,7 @@ import sys
 # Evaluate
 
 
-def evaluate(qf, ql, qc, gf, gl, gc):
+def evaluate(qf, ql, gf, gl):
     query = qf
     score = np.dot(gf, query)
     # predict index
@@ -18,12 +18,14 @@ def evaluate(qf, ql, qc, gf, gl, gc):
     # index = index[0:2000]
     # good index
     query_index = np.argwhere(gl == ql)
-    camera_index = np.argwhere(gc == qc)
+    good_index = query_index
+    # camera_index = np.argwhere(gc == qc)
 
-    good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
+    # good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
     junk_index1 = np.argwhere(gl == -1)
-    junk_index2 = np.intersect1d(query_index, camera_index)
-    junk_index = np.append(junk_index2, junk_index1)  # .flatten())
+    # junk_index2 = np.intersect1d(query_index, camera_index)
+    # junk_index = np.append(junk_index2, junk_index1)  # .flatten())
+    junk_index = junk_index1
 
     CMC_tmp = compute_mAP(index, good_index, junk_index)
 
@@ -77,10 +79,10 @@ def compute_mAP(index, good_index, junk_index):
 ######################################################################
 result = scipy.io.loadmat('pytorch_result.mat')
 query_feature = result['query_f']
-query_cam = result['query_cam'][0]
+# query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]
 gallery_feature = result['gallery_f']
-gallery_cam = result['gallery_cam'][0]
+# gallery_cam = result['gallery_cam'][0]
 gallery_label = result['gallery_label'][0]
 
 multi = os.path.isfile('multi_query.mat')
@@ -88,14 +90,14 @@ multi = os.path.isfile('multi_query.mat')
 if multi:
     m_result = scipy.io.loadmat('multi_query.mat')
     mquery_feature = m_result['mquery_f']
-    mquery_cam = m_result['mquery_cam'][0]
+    # mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
 
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
 # print(query_label)
 for i in range(len(query_label)):
-    ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)
+    ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], gallery_feature, gallery_label)
     if CMC_tmp[0] == -1:
         continue
     CMC = CMC + CMC_tmp

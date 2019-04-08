@@ -15,7 +15,8 @@ import copy
 import random
 ###############################################
 from random_erasing import RandomErasing
-from model import ft_net, ft_net_feature, ft_net_dense, PCB
+from model import ft_net, ft_net_feature, ft_net_dense, PCB, ft_next
+from resnext import resnext50_32x4d_fc512 as resnext50
 ###############################################
 import torch
 import torch.nn as nn
@@ -38,6 +39,12 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
 version = torch.__version__
+#fp16
+try:
+    from apex.fp16_utils import *
+    from apex import amp, optimizers
+except ImportError: # will be 3.x series
+    print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
 
 ######################################################################
 # Options
@@ -52,6 +59,7 @@ parser.add_argument('--color_jitter', action='store_true', help='use color jitte
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--use_resnext', action='store_true', help='use resnext50')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
@@ -63,8 +71,10 @@ parser.add_argument('--resume', action='store_true', help='resume training')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--prop_real', default=2, type=int, help='ratio of real images per id in a batch')
 parser.add_argument('--prop_gen', default=2, type=int, help='ratio of gen images per id in a batch')
+parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
 opt = parser.parse_args()
 
+fp16 = opt.fp16
 data_dir = opt.data_dir
 gen_name = opt.gen_name
 name = opt.name
@@ -91,8 +101,8 @@ if len(gpu_ids) > 0:
 transform_train_list = [
         # transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256, 128), interpolation=3),
-        transforms.Resize((288, 144), interpolation=3),
-        # transforms.Pad(10),
+        # transforms.Resize((288, 144), interpolation=3),
+        transforms.Pad(10),
         transforms.RandomCrop((256, 128)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
@@ -289,12 +299,14 @@ class GenSampler(Sampler):
             for pid in selected_pids:
                 batch_idxs = batch_idxs_dict_real[pid].pop(0)
                 final_idxs.extend(batch_idxs)
+                # print(pid)
                 batch_idxs = batch_idxs_dict_gen[pid].pop(0)
                 final_idxs.extend(batch_idxs)
-                if self.real >= self.gen:
-                    remaining = len(batch_idxs_dict_real[pid])
-                else:
-                    remaining = len(batch_idxs_dict_gen[pid])
+                # if self.real >= self.gen:
+                #     remaining = len(batch_idxs_dict_real[pid])
+                # else:
+                #     remaining = len(batch_idxs_dict_gen[pid])
+                remaining = min(len(batch_idxs_dict_real[pid]), len(batch_idxs_dict_gen[pid]))
                 if remaining == 0:
                     avai_pids.remove(pid)
 
@@ -467,6 +479,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
 
             running_loss = 0.0
             running_corrects = 0.0
+            running_loss_xent = 0.0
+            running_loss_htri = 0.0
             # Iterate over data.
             for data in tqdm(dataloaders[phase]):
                 # get the inputs
@@ -505,7 +519,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                     elif opt.triplet:
                         loss_xent = criterion(outputs, labels, flags)
                         loss_htri = criterion_htri(features, labels, flags, epoch)
-                        loss = 1.0 * loss_xent + 0.5 * loss_htri
+                        loss = 1.0 * loss_xent + 0.1 * loss_htri
                     else:
                         loss = criterion(outputs, labels, flags)
                 else:
@@ -525,7 +539,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
 
                 # backward + optimize only if in training phase
                 if phase == 'train':
-                    loss.backward()
+                    if fp16: # we use optimier to backward loss
+                        with amp.scale_loss(loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
                     optimizer.step()
 
                 # statistics
@@ -607,7 +625,7 @@ def save_network(network, epoch_label):
 
 
 def load_network(network):
-    epoch = 59
+    epoch = 89
     save_path = os.path.join('./model', name, 'net_{}.pth'.format(epoch))
     network.load_state_dict(torch.load(save_path))
     return network, epoch
@@ -622,7 +640,9 @@ def load_network(network):
 
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
-elif opt.triplet:
+elif opt.use_resnext:
+    model = ft_next(751)
+elif (not opt.use_dense) and (not opt.use_resnext) and opt.triplet:
     model = ft_net_feature(len(class_names), opt.droprate)
 else:
     model = ft_net(len(class_names), opt.droprate)
@@ -640,7 +660,7 @@ if use_gpu:
 
 # criterion = nn.CrossEntropyLoss()
 criterion = LSR_loss()
-criterion_htri = TripletLoss()
+criterion_htri = TripletLoss(margin=0.3)
 
 
 if opt.adam:
@@ -650,6 +670,15 @@ if opt.adam:
     weight_decay = 5e-4
     optimizer_ft = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay,
                             betas=(adam_beta1, adam_beta2))
+# elif opt.use_resnext:
+#     ignored_params = list(map(id, model.fc.parameters())) + \
+#                      list(map(id, model.classifier.parameters()))
+#     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
+#     optimizer_ft = optim.SGD([
+#              {'params': base_params, 'lr': 0.1*opt.lr},
+#              {'params': model.fc.parameters(), 'lr': opt.lr},
+#              {'params': model.classifier.parameters(), 'lr': opt.lr}
+#          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + \
                      list(map(id, model.classifier.parameters()))
@@ -704,6 +733,11 @@ copyfile('./model.py', dir_name+'/model.py')
 # save opts
 with open('%s/opts.json' % dir_name, 'w') as fp:
     json.dump(vars(opt), fp, indent=1)
+
+if fp16:
+    #model = network_to_half(model)
+    #optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
+    model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
                     num_epochs=100)

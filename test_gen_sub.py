@@ -15,7 +15,7 @@ from torchvision import datasets, models, transforms
 import time
 import os
 import scipy.io
-from model import ft_net_sub, ft_net, ft_net_dense, PCB, PCB_test
+from model import ft_net_sub, ft_net_sub_v2, ft_net, ft_net_dense, PCB, PCB_test
 
 ######################################################################
 # Options
@@ -29,6 +29,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--multi', action='store_true', help='use multiple query' )
+parser.add_argument('--sub', default=2048, type=int, choices=[2048, 512], help='sub network begins at 2048 or 512')
 
 opt = parser.parse_args()
 
@@ -185,7 +186,10 @@ print('-------test-----------')
 if opt.use_dense:
     model_structure = ft_net_dense(751)
 else:
-    model_structure = ft_net_sub(751)
+    if opt.sub == 2048:
+        model_structure = ft_net_sub(751)
+    elif opt.sub == 512:
+        model_structure = ft_net_sub_v2(751)
 
 if opt.PCB:
     model_structure = PCB(751)
@@ -194,9 +198,13 @@ model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
 if not opt.PCB:
-    model.model.fc = nn.Sequential()
-    model.classifier_reid = nn.Sequential()
-    model.classifier_gen = nn.Sequential()
+    if opt.sub == 2048:
+        model.model.fc = nn.Sequential()
+        model.classifier = nn.Sequential()
+    elif opt.sub == 512:
+        model.model.fc = nn.Sequential()
+        model.classifier_reid = nn.Sequential()
+        model.classifier_gen = nn.Sequential()
 else:
     model = PCB_test(model)
 

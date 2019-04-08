@@ -13,7 +13,7 @@ import copy
 import random
 ###############################################
 from random_erasing import RandomErasing
-from model import ft_net_sub, ft_net_dense, PCB
+from model import ft_net_sub, ft_net_sub_v2, ft_net_dense, PCB
 ###############################################
 import torch
 import torch.nn as nn
@@ -27,6 +27,8 @@ from torchvision.datasets.folder import default_loader
 from torch.utils.data import DataLoader, ConcatDataset  # Dataset
 from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
+################################################
+from hard_mine_triplet_loss import TripletLoss
 ################################################
 # from PIL import Image
 import matplotlib
@@ -54,10 +56,14 @@ parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+parser.add_argument('--triplet', action='store_true', help='use triplet loss')
 parser.add_argument('--resume', action='store_true', help='resume training')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--prop_real', default=2, type=int, help='ratio of real images per id in a batch')
 parser.add_argument('--prop_gen', default=2, type=int, help='ratio of gen images per id in a batch')
+parser.add_argument('--sub_weight', default=0.5, type=float, help='sub loss weight')
+parser.add_argument('--tri_weight', default=0.1, type=float, help='tri loss weight')
+parser.add_argument('--sub', default=2048, type=int, choices=[2048, 512], help='sub network begins at 2048 or 512')
 opt = parser.parse_args()
 
 data_dir = opt.data_dir
@@ -234,12 +240,16 @@ class GenSampler(Sampler):
             num_real = len(self.index_dic_real[pid])
             num_gen = len(self.index_dic_gen[pid])
             # num = len(idxs_real)
-            if num_real < self.real:
-                num_real = self.real
-            self.length += num_real - num_real % self.real
-            if num_gen < self.gen:
-                num_gen = self.gen
-            self.length += num_gen - num_gen % self.gen
+            if self.real >= self.gen:
+                if num_real < self.real:
+                    num_real = self.real
+                self.length += num_real - num_real % self.real
+                self.length += (num_real - num_real % self.real) // self.real * self.gen
+            else:
+                if num_gen < self.gen:
+                    num_gen = self.gen
+                self.length += num_gen - num_gen % self.gen
+                self.length += (num_gen - num_gen % self.gen) // self.gen * self.real
 
     def __iter__(self):
         batch_idxs_dict_real = defaultdict(list)
@@ -478,14 +488,17 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                 optimizer.zero_grad()
 
                 # forward
-                outputs_id, outputs_gen = model(inputs)
+                feature, outputs_id, outputs_gen = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs_id.data, 1)
                     if opt.mixup:
                         loss = mixup_criterion(criterion, outputs_id, targets_a, targets_b, lam)
                     else:
                         loss = criterion(outputs_id, labels, flags)
-                        loss += CE_criterion(outputs_gen, flags)
+                        loss += CE_criterion(outputs_gen, flags) * opt.sub_weight
+                        if opt.triplet:
+                            loss_htri = criterion_htri(feature, labels, flags, epoch)
+                            loss += opt.tri_weight * loss_htri
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -594,7 +607,10 @@ def load_network(network):
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
 else:
-    model = ft_net_sub(len(class_names), opt.droprate)
+    if opt.sub == 2048:
+        model = ft_net_sub(len(class_names), opt.droprate)
+    elif opt.sub == 512:
+        model = ft_net_sub_v2(len(class_names), opt.droprate)
 
 if opt.PCB:
     model = PCB(len(class_names))
@@ -607,20 +623,31 @@ print(model)
 if use_gpu:
     model = model.cuda()
 
+criterion_htri = TripletLoss()
 CE_criterion = nn.CrossEntropyLoss()
 criterion = LSR_loss()
 
 if not opt.PCB:
-    ignored_params = list(map(id, model.model.fc.parameters())) + \
-                     list(map(id, model.classifier_reid.parameters())) + \
-                     list(map(id, model.classifier_gen.parameters()))
-    base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
-    optimizer_ft = optim.SGD([
-             {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': model.model.fc.parameters(), 'lr': opt.lr},
-             {'params': model.classifier_reid.parameters(), 'lr': opt.lr},
-             {'params': model.classifier_gen.parameters(), 'lr': opt.lr}
-         ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+    if opt.sub == 512:
+        ignored_params = list(map(id, model.model.fc.parameters())) + \
+                         list(map(id, model.classifier.parameters()))
+        base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
+        optimizer_ft = optim.SGD([
+                 {'params': base_params, 'lr': 0.1*opt.lr},
+                 {'params': model.model.fc.parameters(), 'lr': opt.lr},
+                 {'params': model.classifier.parameters(), 'lr': opt.lr}
+             ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+    elif opt.sub == 2048:
+        ignored_params = list(map(id, model.model.fc.parameters())) + \
+                         list(map(id, model.classifier_reid.parameters())) + \
+                         list(map(id, model.classifier_gen.parameters()))
+        base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
+        optimizer_ft = optim.SGD([
+                 {'params': base_params, 'lr': 0.1*opt.lr},
+                 {'params': model.model.fc.parameters(), 'lr': opt.lr},
+                 {'params': model.classifier_reid.parameters(), 'lr': opt.lr},
+                 {'params': model.classifier_gen.parameters(), 'lr': opt.lr}
+             ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters()))
     ignored_params += (list(map(id, model.classifier0.parameters()))

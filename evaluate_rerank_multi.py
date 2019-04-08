@@ -1,10 +1,9 @@
-import os
-import sys
 import scipy.io
+import os
 import torch
 import numpy as np
 import time
-from  re_ranking import re_ranking
+from  re_ranking_multi import re_ranking
 #######################################################################
 # Evaluate
 def evaluate(score,ql,qc,gl,gc):
@@ -58,23 +57,22 @@ result = scipy.io.loadmat('pytorch_result.mat')
 query_feature = result['query_f']
 query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]
-#query_imid = result['query_imid'][0]
+query_imid = result['query_imid'][0]
 gallery_feature = result['gallery_f']
 gallery_cam = result['gallery_cam'][0]
 gallery_label = result['gallery_label'][0]
-#gallery_imid = result['gallery_imid'][0]
+gallery_imid = result['gallery_imid'][0]
 
-# gen_result = scipy.io.loadmat('pytorch_gen_result.mat')
-#
-# query_feature = gen_result['gen_query_f']
-# query_cam = gen_result['query_cam'][0]
-# query_label = gen_result['query_label'][0]
-# query_imid = gen_result['query_imid'][0]
-# gallery_feature = gen_result['gen_gallery_f']
-# gallery_cam = gen_result['gallery_cam'][0]
-# gallery_label = gen_result['gallery_label'][0]
-# gallery_imid = gen_result['gallery_imid'][0]
-################################################################
+gen_result = scipy.io.loadmat('pytorch_gen_result.mat')
+
+gen_query_feature = gen_result['gen_query_f']
+gen_query_cam = gen_result['query_cam'][0]
+gen_query_label = gen_result['query_label'][0]
+gen_query_imid = gen_result['query_imid'][0]
+gen_gallery_feature = gen_result['gen_gallery_f']
+gen_gallery_cam = gen_result['gallery_cam'][0]
+gen_gallery_label = gen_result['gallery_label'][0]
+gen_gallery_imid = gen_result['gallery_imid'][0]
 multi = os.path.isfile('multi_query.mat')
 
 # if multi:
@@ -83,7 +81,7 @@ multi = os.path.isfile('multi_query.mat')
 #     mquery_cam = m_result['mquery_cam'][0]
 #     mquery_label = m_result['mquery_label'][0]
 #
-# gen_query_feature = np.zeros_like(query_feature_)
+# gen_query_feature = np.zeros_like(query_feature)
 #
 # for i in range(len(query_label)):
 #     mquery_index1 = np.argwhere(mquery_label == query_label[i])
@@ -92,9 +90,6 @@ multi = os.path.isfile('multi_query.mat')
 #     mq = np.mean(mquery_feature[mquery_index, :], axis=0)
 #     gen_query_feature[i, :] = mq
 
-#################################################################
-
-# query_feature = gen_query_feature
 
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
@@ -103,8 +98,14 @@ print('calculate initial distance')
 q_g_dist = np.dot(query_feature, np.transpose(gallery_feature))
 q_q_dist = np.dot(query_feature, np.transpose(query_feature))
 g_g_dist = np.dot(gallery_feature, np.transpose(gallery_feature))
+
+gen_g_dist = np.dot(gen_query_feature, np.transpose(gallery_feature))
+gen_gen_dist = np.dot(gen_query_feature, np.transpose(gen_query_feature))
+
+
+
 since = time.time()
-re_rank = re_ranking(q_g_dist, q_q_dist, g_g_dist)
+re_rank = re_ranking(gen_g_dist, gen_gen_dist, q_g_dist, q_q_dist, g_g_dist)
 time_elapsed = time.time() - since
 print('Reranking complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))

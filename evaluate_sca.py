@@ -29,20 +29,20 @@ def evaluate(qf, ql, qc, gf, gl, gc):
 
     return CMC_tmp
 
-# def evaluate_rerank(score,ql,qc,gl,gc):
-#     index = np.argsort(score)  #from small to large
-#     #index = index[::-1]
-#     # good index
-#     query_index = np.argwhere(gl==ql)
-#     camera_index = np.argwhere(gc==qc)
-#
-#     good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
-#     junk_index1 = np.argwhere(gl==-1)
-#     junk_index2 = np.intersect1d(query_index, camera_index)
-#     junk_index = np.append(junk_index2, junk_index1) #.flatten())
-#
-#     CMC_tmp = compute_mAP(index, good_index, junk_index)
-#     return CMC_tmp
+def evaluate_rerank(score,ql,qc,gl,gc):
+    index = np.argsort(score)  #from small to large
+    #index = index[::-1]
+    # good index
+    query_index = np.argwhere(gl==ql)
+    camera_index = np.argwhere(gc==qc)
+
+    good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
+    junk_index1 = np.argwhere(gl==-1)
+    junk_index2 = np.intersect1d(query_index, camera_index)
+    junk_index = np.append(junk_index2, junk_index1) #.flatten())
+
+    CMC_tmp = compute_mAP(index, good_index, junk_index)
+    return CMC_tmp
 
 def compute_mAP(index, good_index, junk_index):
     ap = 0
@@ -76,13 +76,26 @@ def compute_mAP(index, good_index, junk_index):
 
 ######################################################################
 result = scipy.io.loadmat('pytorch_result.mat')
+
 query_feature = result['query_f']
 query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]
+query_imid = result['query_imid'][0]
 gallery_feature = result['gallery_f']
 gallery_cam = result['gallery_cam'][0]
 gallery_label = result['gallery_label'][0]
+gallery_imid = result['gallery_imid'][0]
 
+gen_result = scipy.io.loadmat('pytorch_gen_result.mat')
+
+gen_query_feature = gen_result['gen_query_f']
+gen_query_cam = gen_result['query_cam'][0]
+gen_query_label = gen_result['query_label'][0]
+gen_query_imid = gen_result['query_imid'][0]
+gen_gallery_feature = gen_result['gen_gallery_f']
+gen_gallery_cam = gen_result['gallery_cam'][0]
+gen_gallery_label = gen_result['gallery_label'][0]
+gen_gallery_imid = gen_result['gallery_imid'][0]
 multi = os.path.isfile('multi_query.mat')
 
 if multi:
@@ -91,11 +104,14 @@ if multi:
     mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
 
+score = scipy.io.loadmat('dist_sca.mat')
+score = score['dist_sca']
+
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
 # print(query_label)
 for i in range(len(query_label)):
-    ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)
+    ap_tmp, CMC_tmp = evaluate_rerank(score[i,:], query_label[i], query_cam[i], gallery_label, gallery_cam)
     if CMC_tmp[0] == -1:
         continue
     CMC = CMC + CMC_tmp
