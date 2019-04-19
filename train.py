@@ -24,7 +24,7 @@ import math
 from model import ft_net, ft_net_dense, PCB
 from random_erasing import RandomErasing
 import json
-import tqdm
+from tqdm import tqdm
 from shutil import copyfile
 
 import matplotlib
@@ -33,26 +33,36 @@ import matplotlib.pyplot as plt
 
 version = torch.__version__
 
+try:
+    from apex.fp16_utils import *
+    from apex import amp, optimizers
+except ImportError: # will be 3.x series
+    print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
+
 ######################################################################
 # Options
 # --------
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir', default='/home/tianlab/hengheng/reid/Market/pytorch', type=str,
+parser.add_argument('--data_dir', default='/home/hmhm/reid/Market/pytorch', type=str,
                     help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
+parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
 opt = parser.parse_args()
 
+fp16 = opt.fp16
 data_dir = opt.data_dir
 name = opt.name
 str_ids = opt.gpu_ids.split(',')
@@ -113,8 +123,8 @@ transform_train_list = [
     transforms.Resize((256, 128), interpolation=3),
     # transforms.Lambda(lambda x: transform_market_to_duke(x)),
     # transforms.Lambda(lambda x: transform_gaussian_noise(x)),
-    transforms.Resize((288, 144), interpolation=3),
-    # transforms.Pad(10),
+    # transforms.Resize((288, 144), interpolation=3),
+    transforms.Pad(10),
     transforms.RandomCrop((256, 128)),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
@@ -220,7 +230,7 @@ class GenSampler(Sampler):
                 if len(batch_idxs_dict[pid]) == 0:
                     avai_pids.remove(pid)
 
-        print(len(final_idxs))
+        # print(len(final_idxs))
         return iter(final_idxs)
 
     def __len__(self):
@@ -233,17 +243,18 @@ class GenSampler(Sampler):
 image_datasets = {}
 image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train' + train_all),
                                                data_transforms['train'])
-image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'gen_train_7p_v1_x1'),
-                                               data_transforms['train'])
 image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
                                              data_transforms['val'])
 
 dataloaders = dict()
-# dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
-#                                                    num_workers=8, drop_last=True)
-dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
+
+if opt.use_sampler:
+    dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
                                                    sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
                                                    num_workers=0, drop_last=True)
+else:
+    dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
+                                                       num_workers=8, drop_last=True)
 
 dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
                                                  drop_last=True)
@@ -255,21 +266,6 @@ cls2idx = image_datasets['train'].class_to_idx
 
 use_gpu = torch.cuda.is_available()
 
-# since = time.time()
-# inputs, classes = next(iter(dataloaders['train']))
-# print(time.time() - since)
-######################################################################
-# Training the model
-# ------------------
-#
-# Now, let's write a general function to train a model. Here, we will
-# illustrate:
-#
-# -  Scheduling the learning rate
-# -  Saving the best model
-#
-# In the following, parameter ``scheduler`` is an LR scheduler object from
-# ``torch.optim.lr_scheduler``.
 
 y_loss = {}  # loss history
 y_loss['train'] = []
@@ -299,6 +295,23 @@ def mixup_data(x, y, alpha=1.0, use_cuda=True):
     y_a, y_b = y, y[index]
     return mixed_x, y_a, y_b, lam
 
+def stitch_data(x, y, alpha=3.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size, c, h, w = x.size()
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    stitch_x = torch.cat((x[:,:,0:round(h*lam),:], x[index,:,round(h*lam):h,:]), dim=2)
+    # mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return stitch_x, y_a, y_b, lam
 
 # criterion
 def mixup_criterion(criterion, pred, y_a, y_b, lam):
@@ -332,7 +345,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_corrects = 0.0
             # count = 0
             # Iterate over data.
-            for data in tqdm.tqdm(dataloaders[phase]):
+            for data in tqdm(dataloaders[phase]):
                 # count += 1
                 # print(count)
                 # get the inputs
@@ -342,15 +355,16 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # print(inputs.shape)
                 # wrap them in Variable
                 if use_gpu:
-                    inputs = inputs.cuda()
-                    labels = labels.cuda()
+                    inputs = inputs.cuda().detach()
+                    labels = labels.cuda().detach()
                     # print(labels)
                     # sys.exit()
                 else:
                     inputs, labels = inputs, labels
 
                 if opt.mixup:
-                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -358,7 +372,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # forward
                 outputs = model(inputs)
                 if not opt.PCB:
-                    _, preds = torch.max(outputs.data, 1)
+                    _, preds = torch.max(outputs, 1)
                     if opt.mixup:
                         loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
                     else:
@@ -379,7 +393,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                 # backward + optimize only if in training phase
                 if phase == 'train':
-                    loss.backward()
+                    if fp16: # we use optimier to backward loss
+                        with amp.scale_loss(loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
                     optimizer.step()
 
                 # statistics
@@ -471,7 +489,10 @@ if use_gpu:
 
 criterion = nn.CrossEntropyLoss()
 
-if not opt.PCB:
+
+if opt.adam:
+    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
+elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
@@ -505,8 +526,10 @@ else:
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
-# exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+if opt.adam:
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+else:
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 
 ######################################################################
 # Train and evaluate
@@ -524,6 +547,11 @@ copyfile('./model.py', dir_name + '/model.py')
 # save opts
 with open('%s/opts.json' % dir_name, 'w') as fp:
     json.dump(vars(opt), fp, indent=1)
+
+if fp16:
+    # model = network_to_half(model)
+    # optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
+    model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
                     num_epochs=100)

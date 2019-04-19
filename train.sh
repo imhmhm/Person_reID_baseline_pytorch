@@ -1,20 +1,20 @@
 python train.py \
-       --name ft_ResNet50_b128_testSpl \
-       --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-       --train_all \
-       --batchsize 128 \
-       --num_per_id 4 \
+      --name ft_ResNet50_GP_b32_adam_step40 \
+      --data_dir /home/hmhm/reid/Market/pytorch \
+      --train_all \
+      --batchsize 32 \
+      --adam \
+      --droprate 0;
+       # --mixup \
+       # --num_per_id 4 \
        # --erasing_p 0.5 \
        # --num_per_id 8;
        # --PCB \
-       # --mixup \
-       # --name ft_ResNet50_128_relu \
-       # --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-       # --train_all \
+       # --data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
 
-# python train.py \
-#      --name ft_ResNet50_b128_spl_8x16 \
-#      --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-#      --train_all \
-#      --batchsize 128 \
-#      --num_per_id 16;
+python train.py \
+       --name ft_ResNet50_GP_b32_sgd_step40 \
+       --data_dir /home/hmhm/reid/Market/pytorch \
+       --train_all \
+       --batchsize 32 \
+       --droprate 0;

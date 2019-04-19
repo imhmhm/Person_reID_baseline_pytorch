@@ -27,8 +27,7 @@ def weights_init_classifier(m):
         init.constant_(m.bias.data, 0.0)
 
 # Defines the new fc layer and classification layer
-# |--Linear--|--bn--|--relu--|--Linear--|
-
+# |--Linear--|--bn--|--relu--|--dropout--|--Linear--|
 
 class ClassBlock(nn.Module):
     def __init__(self, input_dim, class_num, droprate, relu=True, bnorm=True, num_bottleneck=512, linear=True, return_f=False):
@@ -76,9 +75,15 @@ class ft_net(nn.Module):
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        model_ft.fc = nn.Sequential()
         self.model = model_ft
         # self.classifier = ClassBlock(2048, class_num, droprate)
-        self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
+
+        ##### |--Linear--|--bn--|--relu--|--dropout--|--Linear--| #####
+        # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
+
+        ##### |--bn--|--Linear--| #####
+        self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -279,9 +284,9 @@ class PCB_test(nn.Module):
 # debug model structure
 # Here I left a simple forward function.
 # Test the model, before you train it.
-net = ft_net_dense(751)
-# print(net)
-input = Variable(torch.FloatTensor(8, 3, 224, 224))
-output = net(input)
-print('net output size:')
-print(output.shape)
+# net = ft_net_dense(751)
+# # print(net)
+# input = Variable(torch.FloatTensor(8, 3, 224, 224))
+# output = net(input)
+# print('net output size:')
+# print(output.shape)

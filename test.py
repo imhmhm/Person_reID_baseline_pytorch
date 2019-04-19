@@ -19,10 +19,11 @@ from model import ft_net, ft_net_dense, PCB, PCB_test
 ######################################################################
 # Options
 # --------
-parser = argparse.ArgumentParser(description='Training')
+parser = argparse.ArgumentParser(description='Testing')
 parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir', default='/home/tianlab/hengheng/reid/Market/pytorch', type=str, help='./test_data')
+parser.add_argument('--test_dir', default='/home/hmhm/reid', type=str, help='test set base path')
+parser.add_argument('--test_set', default='Market', type=str, help='test set name')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
@@ -35,6 +36,7 @@ str_ids = opt.gpu_ids.split(',')
 # which_epoch = opt.which_epoch
 name = opt.name
 test_dir = opt.test_dir
+test_set = opt.test_set
 
 gpu_ids = []
 for str_id in str_ids:
@@ -73,7 +75,8 @@ if opt.PCB:
     ])
 
 
-data_dir = test_dir
+#data_dir = test_dir
+data_dir = os.path.join(test_dir, test_set, 'pytorch')
 
 if opt.multi:
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query', 'multi-query']}
@@ -132,7 +135,7 @@ def extract_feature(model, dataloaders):
                 img = fliplr(img)
             input_img = img.cuda()
             outputs = model(input_img)
-            f = outputs.data.cpu()
+            f = outputs.cpu()
             ff = ff+f
         # norm feature
         if opt.PCB:
@@ -183,7 +186,7 @@ if opt.use_dense:
     model_structure = ft_net_dense(len(train_class_names))
 else:
     # model_structure = ft_net(len(train_class_names))
-    model_structure = ft_net(1502)  # adjust 751 for transfer
+    model_structure = ft_net(751)  # adjust 751 for transfer
 
 if opt.PCB:
     # model_structure = PCB(len(train_class_names))
@@ -194,7 +197,10 @@ model = load_network(model_structure)
 # Remove the final fc layer and classifier layer
 if not opt.PCB:
     model.model.fc = nn.Sequential()
-    model.classifier = nn.Sequential()
+    ##### feature after avgpool #####
+    # model.classifier = nn.Sequential()
+    ##### feature after BN #####
+    model.classifier.classifier = nn.Sequential()
 else:
     model = PCB_test(model)
 
@@ -211,9 +217,15 @@ with torch.no_grad():
         mquery_feature = extract_feature(model, dataloaders['multi-query'])
 
 # Save to Matlab for check
+feat_dir = os.path.join('./model', name, test_set)
+if not os.path.isdir(feat_dir):
+    os.makedirs(feat_dir)
+
 result = {'gallery_f': gallery_feature.numpy(), 'gallery_label': gallery_label, 'gallery_cam': gallery_cam,
           'query_f': query_feature.numpy(), 'query_label': query_label, 'query_cam': query_cam}
-scipy.io.savemat('pytorch_result.mat', result)
+feat_path = os.path.join('./model', name, test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+scipy.io.savemat(feat_path, result)
 if opt.multi:
     result = {'mquery_f': mquery_feature.numpy(), 'mquery_label': mquery_label, 'mquery_cam': mquery_cam}
-    scipy.io.savemat('multi_query.mat', result)
+    multi_path = os.path.join('./model', name, test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
+    scipy.io.savemat(multi_path, result)
