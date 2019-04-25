@@ -2,11 +2,14 @@
 By [Zhedong Zheng](http://zdzheng.xyz/)
 
 This is a [University of Technology Sydney](https://www.uts.edu.au) computer vision practical, authored by Zhedong Zheng.
-The practical explores the basis of learning pedestrian features. In this practical, we will learn to build a simple person re-ID system step by step. **Any suggestion is welcomed.**
+The practical explores the basis of learning pedestrian features. In this practical, we will learn to build a simple person re-ID system step by step. (8 min read) :+1: **Any suggestion is welcomed.**
 
 ![](https://github.com/layumi/Person_reID_baseline_pytorch/blob/master/show.png)
 
 Person re-ID can be viewed as an image retrieval problem. Given one query image in Camera **A**, we need to find the images of the same person in other Cameras. The key of the person re-ID is to find a discriminative representation of the person. Many recent works apply deeply learned models to extract visual features, and achieve the state-of-the-art performance.
+
+## Keywords
+Person re-identification, 行人重识别, 人の再識別, 보행자 재 식별, Réidentification des piétons, Ri-identificazione pedonale, Fußgänger-Neuidentifizierung, إعادة تحديد المشاة, Re-identificación de peatones
 
 ## Prerequisites
 - Python 3.6
@@ -33,8 +36,8 @@ You may notice that the downloaded folder is organized as:
 ├── Market/
 │   ├── bounding_box_test/          /* Files for testing (candidate images pool)
 │   ├── bounding_box_train/         /* Files for training 
-│   ├── gt_bbox/                    /* We do not use it 
-│   ├── gt_query/                   /* Files for multiple query testing 
+│   ├── gt_bbox/                    /* Files for multiple query testing 
+│   ├── gt_query/                   /* We do not use it 
 │   ├── query/                      /* Files for testing (query images)
 │   ├── readme.txt
 ```
@@ -47,8 +50,8 @@ We create a subfolder called `pytorch` under the download folder.
 ├── Market/
 │   ├── bounding_box_test/          /* Files for testing (candidate images pool)
 │   ├── bounding_box_train/         /* Files for training 
-│   ├── gt_bbox/                    /* We do not use it 
-│   ├── gt_query/                   /* Files for multiple query testing 
+│   ├── gt_bbox/                    /* Files for multiple query testing 
+│   ├── gt_query/                   /* We do not use it
 │   ├── query/                      /* Files for testing (query images)
 │   ├── readme.txt
 │   ├── pytorch/
@@ -323,6 +326,8 @@ The dataset is quite similar to Market-1501. You may also check with the state-o
 + Quick Question. Could we directly apply the model trained on Market-1501 to DukeMTMC-reID? Why?
 ```
 
+- Try verification + identification loss. You may check the code at [Here](https://github.com/layumi/Person-reID-verification).
+
 - Try Triplet Loss.
 Triplet loss is another widely-used objective. You may check the code in https://github.com/layumi/Person-reID-triplet-loss. 
 I write the code in a similar manner, so let's find what I changed. 
@@ -335,10 +340,18 @@ I write the code in a similar manner, so let's find what I changed.
 ![](https://github.com/layumi/Image-Text-Embedding/blob/master/CUHK-show.jpg)
 
 - Could we use other losses (i.e. contrastive loss) to further improve the performance? Check [this paper](https://arxiv.org/abs/1611.05666). 
+![](https://github.com/layumi/2016_person_re-ID/raw/master/paper.jpg)
 
-- Person-reID dataset is not large enough to train a deep-learned network? You may check [this paper](https://arxiv.org/abs/1701.07717) and try some data augmentation method like [random erasing](https://arxiv.org/abs/1708.04896).
+- Person-reID dataset is not large enough to train a deep-learned network? You may check [this paper](https://arxiv.org/abs/1701.07717) (use GAN to generate more samples) and try some data augmentation method like [random erasing](https://arxiv.org/abs/1708.04896).
+
+![](https://github.com/layumi/Person-reID_GAN/raw/master/fig0.jpg)
 
 - Pedestrian detection is bad? Try [Open Pose](https://github.com/CMU-Perceptual-Computing-Lab/openpose) and [Spatial Transformer](https://github.com/layumi/Pedestrian_Alignment) to align the images.
+
+![](https://github.com/layumi/Pedestrian_Alignment/raw/master/fig2.jpg)
+
+## Answers to Quick Questions
+You may check https://github.com/layumi/Person_reID_baseline_pytorch/blob/master/tutorial/Answers_to_Quick_Questions.md
 
 ## Reference
 

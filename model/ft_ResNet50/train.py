@@ -34,7 +34,7 @@ except ImportError: # will be 3.x series
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--name',default='ft_ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir',default='/home/tianlab/hengheng/reid/Market/pytorch',type=str, help='training dir path')
+parser.add_argument('--data_dir',default='../Market/pytorch',type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data' )
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training' )
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
@@ -70,7 +70,6 @@ if len(gpu_ids)>0:
 transform_train_list = [
         #transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256,128), interpolation=3),
-        #transforms.Resize((288,144), interpolation=3),
         transforms.Pad(10),
         transforms.RandomCrop((256,128)),
         transforms.RandomHorizontalFlip(),
@@ -188,7 +187,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # if we use low precision, input also need to be fp16
                 #if fp16:
                 #    inputs = inputs.half()
-
+ 
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -234,12 +233,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
-
+            
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
-
+            
             y_loss[phase].append(epoch_loss)
-            y_err[phase].append(1.0-epoch_acc)
+            y_err[phase].append(1.0-epoch_acc)            
             # deep copy the model
             if phase == 'val':
                 last_model_wts = model.state_dict()
@@ -322,7 +321,7 @@ if not opt.PCB:
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters() ))
-    ignored_params += (list(map(id, model.classifier0.parameters() ))
+    ignored_params += (list(map(id, model.classifier0.parameters() )) 
                      +list(map(id, model.classifier1.parameters() ))
                      +list(map(id, model.classifier2.parameters() ))
                      +list(map(id, model.classifier3.parameters() ))
@@ -352,7 +351,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 # Train and evaluate
 # ^^^^^^^^^^^^^^^^^^
 #
-# It should take around 1-2 hours on GPU.
+# It should take around 1-2 hours on GPU. 
 #
 dir_name = os.path.join('./model',name)
 if not os.path.isdir(dir_name):
@@ -375,4 +374,5 @@ if fp16:
 criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=100)
+                       num_epochs=60)
+

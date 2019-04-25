@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
-import pretrainedmodels
 
 ######################################################################
 def weights_init_kaiming(m):
@@ -73,8 +72,7 @@ class ft_net(nn.Module):
             model_ft.layer4[0].conv2.stride = (1,1)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.model = model_ft
-        #self.classifier = ClassBlock(2048, class_num, droprate)
-        self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
+        self.classifier = ClassBlock(2048, class_num, droprate)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -99,36 +97,15 @@ class ft_net_dense(nn.Module):
         model_ft.features.avgpool = nn.AdaptiveAvgPool2d((1,1))
         model_ft.fc = nn.Sequential()
         self.model = model_ft
-        # For DenseNet, the feature dim is 1024
-        self.classifier = ClassBlock(1024, class_num, droprate, relu=True)
+        # For DenseNet, the feature dim is 1024 
+        self.classifier = ClassBlock(1024, class_num, droprate)
 
     def forward(self, x):
         x = self.model.features(x)
         x = x.view(x.size(0), x.size(1))
         x = self.classifier(x)
         return x
-
-# Define the NAS-based Model
-class ft_net_NAS(nn.Module):
-
-    def __init__(self, class_num, droprate=0.5):
-        super().__init__()
-        model_name = 'nasnetalarge'
-        # pip install pretrainedmodels
-        model_ft = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
-        model_ft.avg_pool = nn.AdaptiveAvgPool2d((1,1))
-        model_ft.dropout = nn.Sequential()
-        model_ft.last_linear = nn.Sequential()
-        self.model = model_ft
-        # For DenseNet, the feature dim is 4032
-        self.classifier = ClassBlock(4032, class_num, droprate)
-
-    def forward(self, x):
-        x = self.model(x)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
-
+    
 # Define the ResNet50-based Model (Middle-Concat)
 # In the spirit of "The Devil is in the Middle: Exploiting Mid-level Representations for Cross-Domain Instance Matching." Yu, Qian, et al. arXiv:1711.08106 (2017).
 class ft_net_middle(nn.Module):
@@ -182,7 +159,7 @@ class PCB(nn.Module):
         x = self.model.bn1(x)
         x = self.model.relu(x)
         x = self.model.maxpool(x)
-
+        
         x = self.model.layer1(x)
         x = self.model.layer2(x)
         x = self.model.layer3(x)
@@ -237,7 +214,7 @@ python model.py
 '''
 if __name__ == '__main__':
 # Here I left a simple forward function.
-# Test the model, before you train it.
+# Test the model, before you train it. 
     net = ft_net(751, stride=1)
     net.classifier = nn.Sequential()
     print(net)

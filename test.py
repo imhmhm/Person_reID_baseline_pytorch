@@ -8,17 +8,25 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
+import torch.backends.cudnn as cudnn
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
 import time
 import os
 import scipy.io
-from model import ft_net, ft_net_dense, PCB, PCB_test
+import yaml
+from model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test
 
+#fp16
+try:
+    from apex.fp16_utils import *
+except ImportError: # will be 3.x series
+    print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
 ######################################################################
 # Options
 # --------
+
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
@@ -28,8 +36,24 @@ parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--multi', action='store_true', help='use multiple query' )
+parser.add_argument('--fp16', action='store_true', help='use fp16.' )
 
 opt = parser.parse_args()
+###load config###
+# load the training config
+config_path = os.path.join('./model',opt.name,'opts.yaml')
+with open(config_path, 'r') as stream:
+        config = yaml.load(stream)
+opt.fp16 = config['fp16']
+opt.PCB = config['PCB']
+opt.use_dense = config['use_dense']
+opt.use_NAS = config['use_NAS']
+opt.stride = config['stride']
+
+if 'nclasses' in config: # tp compatible with old config files
+    opt.nclasses = config['nclasses']
+else:
+    opt.nclasses = 751
 
 str_ids = opt.gpu_ids.split(',')
 #which_epoch = opt.which_epoch
@@ -45,6 +69,7 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids)>0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
 
 ######################################################################
 # Load Data
@@ -68,7 +93,7 @@ data_transforms = transforms.Compose([
          #   [transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop)
           #       for crop in crops]
           # ))
-])
+])nclasses
 
 if opt.PCB:
     data_transforms = transforms.Compose([
@@ -123,18 +148,18 @@ def extract_feature(model,dataloaders):
         n, c, h, w = img.size()
         count += n
         print(count)
-        if opt.use_dense:
-            ff = torch.FloatTensor(n,1024).zero_()
-        else:
-            ff = torch.FloatTensor(n,2048).zero_()
+        ff = torch.FloatTensor(n,512).zero_()
+
         if opt.PCB:
             ff = torch.FloatTensor(n,2048,6).zero_() # we have six parts
         for i in range(2):
             if(i==1):
                 img = fliplr(img)
             input_img = Variable(img.cuda())
+            #if opt.fp16:
+            #    input_img = input_img.half()
             outputs = model(input_img)
-            f = outputs.data.cpu()
+            f = outputs.data.cpu().float()
             ff = ff+f
         # norm feature
         if opt.PCB:
@@ -180,21 +205,32 @@ if opt.multi:
 # Load Collected data Trained model
 print('-------test-----------')
 if opt.use_dense:
-    model_structure = ft_net_dense(len(train_class_names))
+    model_structure = ft_net_dense(opt.nclasses)
+elif opt.use_NAS:
+    model_structure = ft_net_NAS(opt.nclasses)
 else:
-    model_structure = ft_net(len(train_class_names))
+    model_structure = ft_net(opt.nclasses, stride = opt.stride)
 
 if opt.PCB:
-    model_structure = PCB(len(train_class_names))
+    model_structure = PCB(opt.nclasses)
+
+#if opt.fp16:
+#    model_structure = network_to_half(model_structure)
 
 model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
-if not opt.PCB:
-    model.model.fc = nn.Sequential()
-    model.classifier = nn.Sequential()
+if opt.PCB:
+    #if opt.fp16:
+    #    model = PCB_test(model[1])
+    #else:
+        model = PCB_test(model)
 else:
-    model = PCB_test(model)
+    #if opt.fp16:
+        #model[1].model.fc = nn.Sequential()
+        #model[1].classifier = nn.Sequential()
+    #else:
+        model.classifier.classifier = nn.Sequential()
 
 # Change to test mode
 model = model.eval()

@@ -1,20 +1,38 @@
-## Person_reID_baseline_pytorch
+<h1 align="center"> Person_reID_baseline_pytorch </h1>
 
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/layumi/Person_reID_baseline_pytorch.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/layumi/Person_reID_baseline_pytorch/context:python)
 [![Build Status](https://travis-ci.org/layumi/Person_reID_baseline_pytorch.svg?branch=master)](https://travis-ci.org/layumi/Person_reID_baseline_pytorch)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/layumi/Person_reID_baseline_pytorch.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/layumi/Person_reID_baseline_pytorch/alerts/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-Baseline Code (with bottleneck) for Person-reID (pytorch).
-It is consistent with the new baseline result in [Beyond Part Models: Person Retrieval with Refined Part Pooling](https://arxiv.org/abs/1711.09349) and [Camera Style Adaptation for Person Re-identification](https://arxiv.org/abs/1711.10295).
+A tiny, friendly, strong baseline code for Person-reID (based on [pytorch](https://pytorch.org)).
 
-We arrived **Rank@1=88.24%, mAP=70.68%** only with softmax loss. 
+- **Strong.** It is consistent with the new baseline result in several top-conference works, e.g., [Beyond Part Models: Person Retrieval with Refined Part Pooling(ECCV18)](https://arxiv.org/abs/1711.09349) and [Camera Style Adaptation for Person Re-identification(CVPR18)](https://arxiv.org/abs/1711.10295). We arrived Rank@1=88.24%, mAP=70.68% only with softmax loss. 
 
-- If you are new to person re-ID, you may check out our [tutorial](https://github.com/layumi/Person_reID_baseline_pytorch/tree/master/tutorial) first.
+- **Small.** With fp16, our baseline could be trained with only 2GB GPU memory.
 
+- **Friendly.** You may use the off-the-shelf options to apply many state-of-the-art tricks in one line.
+Besides, if you are new to person re-ID, you may check out our **[Tutorial](https://github.com/layumi/Person_reID_baseline_pytorch/tree/master/tutorial)** first (8 min read) :+1: .
 ![](https://github.com/layumi/Person_reID_baseline_pytorch/blob/master/show.png)
 
+## Table of contents
+* [Features](#features)
+* [Some News](#some-news)
+* [Trained Model](#trained-model)
+* [Prerequisites](#prerequisites)
+* [Getting Started](#getting-started)
+    * [Installation](#installation)
+    * [Dataset Preparation](#dataset--preparation)
+    * [Train](#train)
+    * [Test](#test)
+    * [Evaluation](#evaluation)
+* [Tips for training with other datasets](#tips)
+* [Citation](#citation)
+* [Related Repos](#related-repos)
+
+## Features
 Now we have supported:
+- Float16 to save GPU memory based on [apex](https://github.com/NVIDIA/apex)
 - Part-based Convolutional Baseline(PCB)
 - Multiple Query Evaluation
 - Re-Ranking
@@ -26,11 +44,17 @@ Now we have supported:
 Here we provide hyperparameters and architectures, that were used to generate the result. 
 Some of them (i.e. learning rate) are far from optimal. Do not hesitate to change them and see the effect. 
 
-P.S. With similar structure, we arrived **Rank@1=87.74% mAP=69.46%** with Matconvnet. (batchsize=8, dropout=0.75) 
+P.S. With similar structure, we arrived **Rank@1=87.74% mAP=69.46%** with [Matconvnet](http://www.vlfeat.org/matconvnet/). (batchsize=8, dropout=0.75) 
 You may refer to [Here](https://github.com/layumi/Person_reID_baseline_matconvnet).
 Different framework need to be tuned in a different way.
 
 ## Some News
+**What's new:** FP16 has been added. It can be used by simply added `--fp16`. You need to install [apex](https://github.com/NVIDIA/apex) and update your pytorch to 1.0. 
+
+Float16 could save about 50% GPU memory usage without accuracy drop. **Our baseline could be trained with only 2GB GPU memory.** 
+```bash
+python train.py --fp16
+```
 **What's new:** Visualizing ranking result is added.
 ```bash
 python prepare.py
@@ -47,7 +71,7 @@ python test.py --multi
 python evaluate_gpu.py
 ```
 
-**What's new:**  [PCB](https://arxiv.org/abs/1711.09349) is added. You may use '--PCB' to use this model. It can achieve around **Rank@1=92.73% mAP=78.16%**. I used a GPU (P40) with 16GB Memory. You may try apply smaller batchsize and choose the smaller learning rate (for stability) to run. (For example, `--batchsize 32 --lr 0.01 --PCB`)
+**What's new:**  [PCB](https://arxiv.org/abs/1711.09349) is added. You may use '--PCB' to use this model. It can achieve around **Rank@1=92.73% mAP=78.16%**. I used a GPU (P40) with 24GB Memory. You may try apply smaller batchsize and choose the smaller learning rate (for stability) to run. (For example, `--batchsize 32 --lr 0.01 --PCB`)
 ```bash
 python train.py --PCB --batchsize 64 --name PCB-64
 python test.py --PCB --name PCB-64
@@ -67,11 +91,16 @@ python test.py --PCB --name PCB-64
 
 ## Trained Model
 I re-trained several models, and the results may be different with the original one. Just for a quick reference, you may directly use these models. 
-- [ResNet-50](https://drive.google.com/open?id=1WkKEqCUd7hnA8oj6U8DJgHx7nSz7Ogm8)  (Rank@1:88.84% mAP:71.72%)
-- [DenseNet-121](https://drive.google.com/open?id=11_yWO5APgRbn0n4uigpqgEAt0O3GNNx0) (Rank@1:89.82% mAP:72.86%)
-- [PCB](https://drive.google.com/open?id=1DSbY100KWH2YmUc4FuP5cQ37N81G7fuU) (Rank@1:92.46% mAP:77.47%)
+The download link is [Here](https://drive.google.com/open?id=1XVEYb0TN2SbBYOqf8SzazfYZlpH9CxyE).
 
-## Model Structure
+|Methods | Rank@1 | mAP| Reference|
+| -------- | ----- | ---- | ---- |
+| [ResNet-50] | 88.84% | 71.59% |  `python train.py --train_all` |
+| [DenseNet-121] | 90.17% | 74.02% | `python train.py --name ft_net_dense --use_dense --train_all` |
+| [PCB] | 92.64% | 77.47% | `python train.py --name PCB --PCB --train_all --lr 0.02` |
+| [ResNet-50 (fp16)] | 88.03% | 71.40% | `python train.py --name fp16 --fp16 --train_all` |
+
+### Model Structure
 You may learn more from `model.py`. 
 We add one linear layer(bottleneck), one batchnorm layer and relu.
 
@@ -81,6 +110,7 @@ We add one linear layer(bottleneck), one batchnorm layer and relu.
 - GPU Memory >= 6G
 - Numpy
 - Pytorch 0.3+
+- [Optional] apex (for float16) 
 
 **(Some reports found that updating numpy can arrive the right accuracy. If you only get 50~80 Top1 Accuracy, just try it.)**
 We have successfully run the code based on numpy 1.12.1 and 1.13.1 .
@@ -94,11 +124,17 @@ git clone https://github.com/pytorch/vision
 cd vision
 python setup.py install
 ```
+- [Optinal] You may skip it. Install apex from the source
+```
+git clone https://github.com/NVIDIA/apex.git
+cd apex
+python setup.py install --cuda_ext --cpp_ext
+```
 Because pytorch and torchvision are ongoing projects.
 
 Here we noted that our code is tested based on Pytorch 0.3.0/0.4.0/0.5.0/1.0.0 and Torchvision 0.2.0/0.2.1 .
 
-## Dataset & Preparation
+### Dataset & Preparation
 Download [Market1501 Dataset](http://www.liangzheng.org/Project/project_reid.html)
 
 Preparation: Put the images with the same id in one folder. You may use 
@@ -110,7 +146,7 @@ Remember to change the dataset path to your own path.
 Futhermore, you also can test our code on [DukeMTMC-reID Dataset](https://github.com/layumi/DukeMTMC-reID_evaluation).
 Our baseline code is not such high on DukeMTMC-reID **Rank@1=64.23%, mAP=43.92%**. Hyperparameters are need to be tuned.
 
-## Train
+### Train
 Train a model by
 ```bash
 python train.py --gpu_ids 0 --name ft_ResNet50 --train_all --batchsize 32  --data_dir your_data_path
@@ -132,7 +168,7 @@ Train a model with random erasing by
 python train.py --gpu_ids 0 --name ft_ResNet50 --train_all --batchsize 32  --data_dir your_data_path --erasing_p 0.5
 ```
 
-## Test
+### Test
 Use trained model to extract feature by
 ```bash
 python test.py --gpu_ids 0 --name ft_ResNet50 --test_dir your_data_path  --batchsize 32 --which_epoch 59
@@ -148,7 +184,7 @@ python test.py --gpu_ids 0 --name ft_ResNet50 --test_dir your_data_path  --batch
 `--data_dir` the path of the testing data.
 
 
-## Evaluation
+### Evaluation
 ```bash
 python evaluate.py
 ```
@@ -164,6 +200,14 @@ python evaluate_rerank.py
 **It may take more than 10G Memory to run.** So run it on a powerful machine if possible. 
 
 It will output Rank@1, Rank@5, Rank@10 and mAP results.
+
+### Tips
+Notes the format of the camera id and the number of cameras.
+
+For some dataset, e.g., MSMT17, there are more than 10 cameras. You need to modify the `prepare.py` and `test.py` to read the double-digit camera ID.
+
+For some vehicle re-ID datasets. e.g. VeRi, you also need to modify the `prepare.py` and `test.py`.  It has different naming rules.
+https://github.com/layumi/Person_reID_baseline_pytorch/issues/107 (Sorry. It is in Chinese)
 
 
 ## Citation

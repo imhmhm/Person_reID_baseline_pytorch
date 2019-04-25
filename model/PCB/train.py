@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 #from PIL import Image
 import time
 import os
-from model import ft_net, ft_net_dense, ft_net_NAS, PCB
+from model import ft_net, ft_net_dense, PCB
 from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
@@ -25,7 +25,6 @@ version =  torch.__version__
 #fp16
 try:
     from apex.fp16_utils import *
-    from apex import amp, optimizers
 except ImportError: # will be 3.x series
     print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
 ######################################################################
@@ -34,15 +33,14 @@ except ImportError: # will be 3.x series
 parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--name',default='ft_ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir',default='/home/tianlab/hengheng/reid/Market/pytorch',type=str, help='training dir path')
+parser.add_argument('--data_dir',default='../Market/pytorch',type=str, help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data' )
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training' )
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
-parser.add_argument('--use_NAS', action='store_true', help='use NAS' )
-parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50' )
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
@@ -70,7 +68,6 @@ if len(gpu_ids)>0:
 transform_train_list = [
         #transforms.RandomResizedCrop(size=128, scale=(0.75,1.0), ratio=(0.75,1.3333), interpolation=3), #Image.BICUBIC)
         transforms.Resize((256,128), interpolation=3),
-        #transforms.Resize((288,144), interpolation=3),
         transforms.Pad(10),
         transforms.RandomCrop((256,128)),
         transforms.RandomHorizontalFlip(),
@@ -186,9 +183,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 else:
                     inputs, labels = Variable(inputs), Variable(labels)
                 # if we use low precision, input also need to be fp16
-                #if fp16:
-                #    inputs = inputs.half()
-
+                if fp16:
+                    inputs = inputs.half()
+ 
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -219,8 +216,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # backward + optimize only if in training phase
                 if phase == 'train':
                     if fp16: # we use optimier to backward loss
-                        with amp.scale_loss(loss, optimizer) as scaled_loss:
-                            scaled_loss.backward()
+                        optimizer.backward(loss)
                     else:
                         loss.backward()
                     optimizer.step()
@@ -234,12 +230,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
-
+            
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
-
+            
             y_loss[phase].append(epoch_loss)
-            y_err[phase].append(1.0-epoch_acc)
+            y_err[phase].append(1.0-epoch_acc)            
             # deep copy the model
             if phase == 'val':
                 last_model_wts = model.state_dict()
@@ -301,28 +297,25 @@ def save_network(network, epoch_label):
 
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
-elif opt.use_NAS:
-    model = ft_net_NAS(len(class_names), opt.droprate)
 else:
     model = ft_net(len(class_names), opt.droprate, opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))
 
-opt.nclasses = len(class_names)
-
 print(model)
 
 if not opt.PCB:
-    ignored_params = list(map(id, model.classifier.parameters() ))
+    ignored_params = list(map(id, model.model.fc.parameters() )) + list(map(id, model.classifier.parameters() ))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
              {'params': base_params, 'lr': 0.1*opt.lr},
+             {'params': model.model.fc.parameters(), 'lr': opt.lr},
              {'params': model.classifier.parameters(), 'lr': opt.lr}
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters() ))
-    ignored_params += (list(map(id, model.classifier0.parameters() ))
+    ignored_params += (list(map(id, model.classifier0.parameters() )) 
                      +list(map(id, model.classifier1.parameters() ))
                      +list(map(id, model.classifier2.parameters() ))
                      +list(map(id, model.classifier3.parameters() ))
@@ -352,7 +345,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 # Train and evaluate
 # ^^^^^^^^^^^^^^^^^^
 #
-# It should take around 1-2 hours on GPU.
+# It should take around 1-2 hours on GPU. 
 #
 dir_name = os.path.join('./model',name)
 if not os.path.isdir(dir_name):
@@ -368,11 +361,11 @@ with open('%s/opts.yaml'%dir_name,'w') as fp:
 # model to gpu
 model = model.cuda()
 if fp16:
-    #model = network_to_half(model)
-    #optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
-    model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
+    model = network_to_half(model)
+    optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
 
 criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=100)
+                       num_epochs=60)
+
