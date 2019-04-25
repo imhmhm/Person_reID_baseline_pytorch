@@ -15,7 +15,8 @@ import numpy as np
 import os
 import sys
 import scipy.io
-from model import ft_net, ft_net_dense, PCB, PCB_test
+import yaml
+from model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_feature
 
 ######################################################################
 # Options
@@ -32,6 +33,20 @@ parser.add_argument('--PCB', action='store_true', help='use PCB')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
 
 opt = parser.parse_args()
+###########################
+#### load config ####
+config_path = os.path.join('./model', opt.name, 'opts.yaml')
+with open(config_path, 'r') as stream:
+    config = yaml.load(stream)
+opt.PCB = config['PCB']
+opt.use_dense = config['use_dense']
+opt.use_NAS = config['use_NAS']
+opt.stride = config['stride']
+if 'nclasses' in config:
+    opt.nclasses = config['nclasses']
+else:
+    opt.nclasses = 751
+############################
 
 str_ids = opt.gpu_ids.split(',')
 # which_epoch = opt.which_epoch
@@ -136,7 +151,7 @@ def extract_feature(model, dataloaders):
                 img = fliplr(img)
             input_img = img.cuda()
             outputs = model(input_img)
-            f = outputs.cpu()
+            f = outputs.cpu().float()
             ff = ff+f
         # norm feature
         if opt.PCB:
@@ -184,14 +199,14 @@ if opt.multi:
 # Load Collected data Trained model
 print('-------test-----------')
 if opt.use_dense:
-    model_structure = ft_net_dense(len(train_class_names))
+    model_structure = ft_net_dense(opt.nclasses)
+elif opt.use_NAS:
+    model_structure = ft_net_NAS(opt.nclasses)
 else:
-    # model_structure = ft_net(len(train_class_names))
-    model_structure = ft_net(751)  # adjust 751 for transfer
+    model_structure = ft_net(opt.nclasses, stride=opt.stride)
 
 if opt.PCB:
-    # model_structure = PCB(len(train_class_names))
-    model_structure = PCB(751)  # adjust 751 for transfer
+    model_structure = PCB(opt.nclasses)
 
 model = load_network(model_structure)
 

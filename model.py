@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 from torchvision import models
-from torch.autograd import Variable
+# from torch.autograd import Variable
+import pretrainedmodels
 
 ######################################################################
 
@@ -70,13 +71,17 @@ class ClassBlock(nn.Module):
 
 class ft_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.0):
+    def __init__(self, class_num, droprate=0.0, stride=2):
         super(ft_net, self).__init__()
         model_ft = models.resnet50(pretrained=True)
+        if stride == 1:
+            model_ft.layer4[0].downsample[0].stride = (1, 1)
+            model_ft.layer4[0].conv2.stride = (1, 1)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         model_ft.fc = nn.Sequential()
         self.model = model_ft
+
         # self.classifier = ClassBlock(2048, class_num, droprate)
 
         ##### |--Linear--|--bn--|--relu--|--dropout--|--Linear--| #####
@@ -105,9 +110,12 @@ class ft_net(nn.Module):
 
 class ft_net_feature(nn.Module):
 
-    def __init__(self, class_num, droprate=0.0):
+    def __init__(self, class_num, droprate=0.0, stride=2):
         super(ft_net_feature, self).__init__()
         model_ft = models.resnet50(pretrained=True)
+        if stride == 1:
+            model_ft.layer4[0].downsample[0].stride = (1, 1)
+            model_ft.layer4[0].conv2.stride = (1, 1)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
@@ -177,6 +185,27 @@ class ft_net_dense(nn.Module):
         x = x.view(x.size(0), x.size(1))
         x = self.classifier(x)
         return x
+
+
+class ft_net_NAS(nn.Module):
+
+    def __init__(self, class_num, droprate=0.0):
+        super().__init__()
+        model_name = 'nasnetalarge'
+        model_ft = pretrainedmodels.__dict__[model_name](num_class=1000, pretrained='imagenet')
+        model_ft.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        model_ft.dropout = nn.Sequential()
+        model_ft.last_linear = nn.Sequential()
+        self.model = model_ft
+        # For DenseNet, the feature dim is 4032
+        self.classifier = ClassBlock(4032, class_num, droprate)
+
+    def forward(self, x):
+        x = self.model(x)
+        x = x.view(x.size(0), x.size(1))
+        x = self.classifier(x)
+        return x
+
 
 # Define the ResNet50-based Model (Middle-Concat)
 # In the spirit of "The Devil is in the Middle: Exploiting Mid-level Representations for Cross-Domain Instance Matching." Yu, Qian, et al. arXiv:1711.08106 (2017).
@@ -289,9 +318,12 @@ class PCB_test(nn.Module):
 # debug model structure
 # Here I left a simple forward function.
 # Test the model, before you train it.
-# net = ft_net_dense(751)
-# # print(net)
-# input = Variable(torch.FloatTensor(8, 3, 224, 224))
-# output = net(input)
-# print('net output size:')
-# print(output.shape)
+if __name__ == '__main__':
+
+    net = ft_net(751, stride=1)
+    net.classifier = nn.Sequential()
+    print(net)
+    input = =torch.FloatTensor(8, 3, 256, 128)
+    output = net(input)
+    print('net output size:')
+    print(output.shape)

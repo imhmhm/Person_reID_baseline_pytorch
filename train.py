@@ -24,7 +24,8 @@ import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
 from random_erasing import RandomErasing
 from hard_mine_triplet_loss import HardTripletLoss
-import json
+# import json
+import yaml
 from tqdm import tqdm
 from shutil import copyfile
 
@@ -49,10 +50,15 @@ parser.add_argument('--name', default='ft_ResNet50', type=str, help='output mode
 parser.add_argument('--data_dir', default='/home/hmhm/reid/Market/pytorch', type=str,
                     help='training dir path')
 parser.add_argument('--train_all', action='store_true', help='use all training data')
+
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
+
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
+
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
@@ -104,7 +110,6 @@ def transform_market_to_duke(img):
     # img.save("test_after.png")
     return img
 
-
 # ----------------------------------------------------------------------
 # add gausian noise
 def transform_gaussian_noise(img):
@@ -116,7 +121,6 @@ def transform_gaussian_noise(img):
     noise_img = Image.fromarray(noise_img_np)
     # noise_img.save("./test/test_after_{}.png".format(random.choice(range(100))), "PNG")
     return noise_img
-
 
 # ------------------------------------------------------------------------
 
@@ -156,8 +160,7 @@ if opt.erasing_p > 0:
     transform_train_list = transform_train_list + [RandomErasing(probability=opt.erasing_p, mean=[0.0, 0.0, 0.0])]
 
 if opt.color_jitter:
-    transform_train_list = [transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1,
-                                                   hue=0)] + transform_train_list
+    transform_train_list = [transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0)] + transform_train_list
 
 print(transform_train_list)
 data_transforms = {
@@ -324,7 +327,7 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 # train
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
 
     since = time.time()
 
@@ -381,13 +384,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
                     if opt.mixup:
-                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                        loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
-                        loss_xent = criterion(outputs, labels)
-                        loss_htri = criterion_htri(features, labels)
+                        loss_xent = criterions['xent'](outputs, labels)
+                        loss_htri = criterions['tri'](features, labels)
                         loss = 1.0 * loss_xent + 1.0 * loss_htri
                     else:
-                        loss = criterion(outputs, labels)
+                        loss = criterions['xent'](outputs, labels)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -398,9 +401,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     score = sm(part[0]) + sm(part[1]) + sm(part[2]) + sm(part[3]) + sm(part[4]) + sm(part[5])
                     _, preds = torch.max(score, 1)
 
-                    loss = criterion(part[0], labels)
+                    loss = criterions['xent'](part[0], labels)
                     for i in range(num_part - 1):
-                        loss += criterion(part[i + 1], labels)
+                        loss += criterions['xent'](part[i + 1], labels)
 
                 # backward + optimize only if in training phase
                 if phase == 'train':
@@ -494,21 +497,24 @@ def save_network(network, epoch_label):
 
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
-elif (not opt.use_dense) and opt.triplet:
-    model = ft_net_feature(len(class_names), opt.droprate)
+elif opt.use_NAS:
+    model = ft_net_NAS(len(class_names), opt.droprate)
+elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
+    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 else:
-    model = ft_net(len(class_names), opt.droprate)
+    model = ft_net(len(class_names), opt.droprate, opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))
 
+opt.nclasses = len(class_names)
+
 print(model)
 
-if use_gpu:
-    model = model.cuda()
 
-criterion = nn.CrossEntropyLoss()
-criterion_htri = HardTripletLoss(margin=0.3)
+criterions = {}
+criterions['xent'] = nn.CrossEntropyLoss()
+criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
@@ -566,13 +572,16 @@ copyfile('./train.py', dir_name + '/train.py')
 copyfile('./model.py', dir_name + '/model.py')
 
 # save opts
-with open('%s/opts.json' % dir_name, 'w') as fp:
-    json.dump(vars(opt), fp, indent=1)
+with open('%s/opts.yaml' % dir_name, 'w') as fp:
+    yaml.dump(vars(opt), fp, default_flow_style=False)
+
+if use_gpu:
+    model = model.cuda()
 
 if fp16:
     # model = network_to_half(model)
     # optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
-model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
+model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler,
                     num_epochs=100)
