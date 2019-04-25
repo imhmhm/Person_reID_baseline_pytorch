@@ -70,7 +70,7 @@ class ClassBlock(nn.Module):
 
 class ft_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
+    def __init__(self, class_num, droprate=0.0):
         super(ft_net, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
@@ -84,6 +84,9 @@ class ft_net(nn.Module):
 
         ##### |--bn--|--Linear--| #####
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+
+        ##### |--bn--|--relu--|--Linear--| #####
+        # self.classifier = ClassBlock(2048, class_num, droprate, relu=True, linear=False)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -102,14 +105,16 @@ class ft_net(nn.Module):
 
 class ft_net_feature(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
+    def __init__(self, class_num, droprate=0.0):
         super(ft_net_feature, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
-        self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
-        # self.classifier = ClassBlock(2048, class_num, droprate, relu=True, return_f=True)  # 512
+
+        # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
+        ##### |--bn--|--Linear--| #####
+        self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -128,7 +133,7 @@ class ft_net_feature(nn.Module):
 
 class ft_net_sub(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
+    def __init__(self, class_num, droprate=0.0):
         super(ft_net_sub, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
@@ -158,7 +163,7 @@ class ft_net_sub(nn.Module):
 
 class ft_net_dense(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
+    def __init__(self, class_num, droprate=0.0):
         super().__init__()
         model_ft = models.densenet121(pretrained=True)
         model_ft.features.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -179,7 +184,7 @@ class ft_net_dense(nn.Module):
 
 class ft_net_middle(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
+    def __init__(self, class_num, droprate=0.0):
         super(ft_net_middle, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
