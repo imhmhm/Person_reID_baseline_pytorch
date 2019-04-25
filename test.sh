@@ -1,5 +1,5 @@
 python test.py \
---name ft_ResNet50_GP_b32_adam \
+--name ft_ResNet50_b32x4_adam_tri_afterbn \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set Market \
 --which_epoch 59;
@@ -12,7 +12,7 @@ python test.py \
 #--which_epoch \
 
 python test.py \
---name ft_ResNet50_GP_b32_adam \
+--name ft_ResNet50_b32x4_adam_tri_afterbn \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set Market \
 --which_epoch 99;
@@ -24,13 +24,13 @@ python test.py \
 # --which_epoch 139;
 
 python test.py \
---name ft_ResNet50_GP_b32_adam \
+--name ft_ResNet50_b32x4_adam_tri_afterbn \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 59;
 
 python test.py \
---name ft_ResNet50_GP_b32_adam \
+--name ft_ResNet50_b32x4_adam_tri_afterbn \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 99;

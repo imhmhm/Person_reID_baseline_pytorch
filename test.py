@@ -136,7 +136,7 @@ def extract_feature(model, dataloaders):
                 img = fliplr(img)
             input_img = img.cuda()
             outputs = model(input_img)
-            f = outputs.cpu()
+            f = outputs.cpu().float()
             ff = ff+f
         # norm feature
         if opt.PCB:
