@@ -323,7 +323,7 @@ if __name__ == '__main__':
     net = ft_net(751, stride=1)
     net.classifier = nn.Sequential()
     print(net)
-    input = =torch.FloatTensor(8, 3, 256, 128)
+    input = torch.FloatTensor(8, 3, 256, 128)
     output = net(input)
     print('net output size:')
     print(output.shape)
