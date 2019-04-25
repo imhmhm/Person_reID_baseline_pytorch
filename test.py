@@ -29,7 +29,9 @@ parser.add_argument('--test_set', default='Market', type=str, help='test set nam
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
+parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
 
 opt = parser.parse_args()
@@ -37,7 +39,7 @@ opt = parser.parse_args()
 #### load config ####
 config_path = os.path.join('./model', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
-    config = yaml.load(stream)
+    config = yaml.load(stream, Loader=yaml.FullLoader)
 opt.PCB = config['PCB']
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
@@ -217,7 +219,7 @@ if not opt.PCB:
     # model.classifier = nn.Sequential()
     ##### feature after BN #####
     # model.classifier.add_block[0] = nn.Sequential()
-    model.classifier.add_block[1] = nn.Sequential()
+    # model.classifier.add_block[1] = nn.Sequential()
     model.classifier.classifier = nn.Sequential()
     # print(model.classifier)
     # sys.exit()
