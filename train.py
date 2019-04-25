@@ -21,11 +21,12 @@ import random
 from collections import defaultdict
 import copy
 import math
-from model import ft_net, ft_net_dense, PCB
+from model import ft_net, ft_net_dense, PCB, ft_net_feature
 from random_erasing import RandomErasing
 import json
 from tqdm import tqdm
 from shutil import copyfile
+from hard_mine_triplet_loss import HardTripletLoss
 
 import matplotlib
 matplotlib.use('agg')
@@ -57,7 +58,9 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+parser.add_argument('--triplet', action='store_true', help='use triplet loss')
 parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
+parser.add_argument('--use_relu', action='store_true', help='use relu in fc')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
 opt = parser.parse_args()
@@ -343,6 +346,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             running_loss = 0.0
             running_corrects = 0.0
+            running_loss_xent = 0.0
+            running_loss_htri = 0.0
             # count = 0
             # Iterate over data.
             for data in tqdm(dataloaders[phase]):
@@ -370,11 +375,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 optimizer.zero_grad()
 
                 # forward
-                outputs = model(inputs)
+                if opt.triplet:
+                    features, outputs = model(inputs)
+                else:
+                    outputs = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
                     if opt.mixup:
                         loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                    elif opt.triplet:
+                        loss_xent = criterion(outputs, labels)
+                        loss_htri = criterion_htri(features, labels)
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
                     else:
                         loss = criterion(outputs, labels)
                 else:
@@ -403,11 +415,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # statistics
                 if int(version[0]) > 0 or int(version[2]) > 3:  # for the new version like 0.4.0, 0.5.0 and 1.0.0
                     running_loss += loss.item() * now_batch_size
+                    if opt.triplet:
+                        running_loss_xent += loss_xent.item() * now_batch_size
+                        running_loss_htri += loss_htri.item() * now_batch_size
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
                 running_corrects += float(torch.sum(preds == labels))
 
             epoch_loss = running_loss / dataset_sizes[phase]
+            if opt.triplet:
+                epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
+                epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
+                print('{} loss_xent: {:.4f} loss_tri: {:.4f}'.format(phase, epoch_loss_xent, epoch_loss_tri))
             epoch_acc = running_corrects / dataset_sizes[phase]
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
@@ -475,9 +494,11 @@ def save_network(network, epoch_label):
 #
 
 if opt.use_dense:
-    model = ft_net_dense(len(class_names), opt.droprate)
+    model = ft_net_dense(len(class_names), opt.droprate, opt.use_relu)
+elif (not opt.use_dense) and opt.triplet:
+    model = ft_net_feature(len(class_names), opt.droprate)
 else:
-    model = ft_net(len(class_names), opt.droprate)
+    model = ft_net(len(class_names), opt.droprate, opt.use_relu)
 
 if opt.PCB:
     model = PCB(len(class_names))
@@ -488,6 +509,7 @@ if use_gpu:
     model = model.cuda()
 
 criterion = nn.CrossEntropyLoss()
+criterion_htri = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
@@ -497,6 +519,7 @@ elif not opt.PCB:
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
         {'params': base_params, 'lr': 0.1*opt.lr},
+        # {'params': base_params, 'lr': opt.lr},
         {'params': model.model.fc.parameters(), 'lr': opt.lr},
         {'params': model.classifier.parameters(), 'lr': opt.lr}
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
@@ -527,7 +550,7 @@ else:
 
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.adam:
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 
@@ -539,7 +562,7 @@ else:
 #
 dir_name = os.path.join('./model', name)
 if not os.path.isdir(dir_name):
-    os.mkdir(dir_name)
+    os.makedirs(dir_name)
 # record every run
 copyfile('./train.py', dir_name + '/train.py')
 copyfile('./model.py', dir_name + '/model.py')

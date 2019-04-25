@@ -13,6 +13,7 @@ from torchvision import datasets, transforms
 # import time
 import numpy as np
 import os
+import sys
 import scipy.io
 from model import ft_net, ft_net_dense, PCB, PCB_test
 
@@ -127,7 +128,7 @@ def extract_feature(model, dataloaders):
         if opt.use_dense:
             ff = torch.FloatTensor(n, 1024).zero_()
         else:
-            ff = torch.FloatTensor(n, 2048).zero_()
+            ff = torch.FloatTensor(n, 2048).zero_()  # 2048 / 512
         if opt.PCB:
             ff = torch.FloatTensor(n, 2048, 6).zero_()  # we have six parts
         for i in range(2):
@@ -200,7 +201,11 @@ if not opt.PCB:
     ##### feature after avgpool #####
     # model.classifier = nn.Sequential()
     ##### feature after BN #####
+    # model.classifier.add_block[1] = nn.Sequential()
+    # model.classifier.add_block[2] = nn.Sequential()
     model.classifier.classifier = nn.Sequential()
+    # print(model)
+    # sys.exit()
 else:
     model = PCB_test(model)
 
