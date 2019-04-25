@@ -65,6 +65,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+parser.add_argument('--lsr', action='store_true', help='use label smoothing')
 parser.add_argument('--triplet', action='store_true', help='use triplet loss')
 parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
 parser.add_argument('--use_relu', action='store_true', help='use relu in fc')
@@ -173,6 +174,50 @@ data_transforms = {
 train_all = ''
 if opt.train_all:
     train_all = '_all'
+
+
+###################################################################
+# modified LSR_loss
+
+
+class LSR_loss(nn.Module):
+    # change target to range(0,750)
+    def __init__(self, epsilon):
+        super(LSR_loss, self).__init__()
+        self.epsilon = epsilon
+
+    def forward(self, input, target):
+        # while flg means the flag(=0 for true data and 1 for generated data)  batchsize*1
+        # print(type(input))
+        # N defines the number of images, C defines channels,  K class in total
+        assert(input.dim() <= 2)
+        if input.dim() > 2:
+            # N,C,H,W => N,C,H*W
+            input = input.view(input.size(0), input.size(1), -1)
+            # N,C,H*W => N,H*W,C
+            input = input.transpose(1, 2)
+            input = input.contiguous().view(-1, input.size(2))    # N,H*W,C => N*H*W,C
+
+        # Max trick (output - max) for softmax
+        # return the index of the biggest value in each row
+        maxRow, _ = torch.max(input.item(), 1)
+        maxRow = maxRow.unsqueeze(1)
+        input = input - maxRow
+
+        epsilon = self.epsilon  # 0.1
+        # epsilon = 0.3
+        # epsilon = 1.0 # LSRO
+        target = target.view(-1, 1)       # batchsize, 1
+        flos = F.log_softmax(input, dim=1)       # N, K = batchsize, 751
+        flos = torch.sum(flos, 1) / flos.size(1)
+        logpt = F.log_softmax(input, dim=1)      # size: batchsize ,751
+        # print(logpt)
+        logpt = logpt.gather(1, target)   # target N, 1
+        logpt = logpt.view(-1)            # N*1 original loss
+        loss = -1 * logpt * (1 - epsilon) - flos * epsilon
+        return loss.mean()
+
+
 ####################################################################
 # sampler
 
@@ -522,7 +567,10 @@ print(model)
 
 
 criterions = {}
-criterions['xent'] = nn.CrossEntropyLoss()
+if opt.lsr:
+    criterions['xent'] = LSR_loss(epsilon=0.1)
+else:
+    criterions['xent'] = nn.CrossEntropyLoss()
 criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
@@ -563,7 +611,8 @@ else:
 
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.adam:
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 
@@ -593,4 +642,4 @@ if fp16:
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
 model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=100)
+                    num_epochs=120)
