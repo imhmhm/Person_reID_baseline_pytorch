@@ -1,5 +1,5 @@
 python test.py \
---name ft_ResNet50_GP_b32x4_sgd0.005_all_relu \
+--name ft_ResNet50_GP_b8x4_adam_tri \
 --test_dir /home/hmhm/reid \
 --test_set Market \
 --which_epoch 59;
@@ -12,7 +12,7 @@ python test.py \
 #--which_epoch \
 
 python test.py \
---name ft_ResNet50_GP_b32x4_sgd0.005_all_relu \
+--name ft_ResNet50_GP_b8x4_adam_tri \
 --test_dir /home/hmhm/reid \
 --test_set Market \
 --which_epoch 99;
@@ -24,13 +24,13 @@ python test.py \
 # --which_epoch 139;
 
 python test.py \
---name ft_ResNet50_GP_b32x4_sgd0.005_all_relu \
+--name ft_ResNet50_GP_b8x4_adam_tri \
 --test_dir /home/hmhm/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 59;
 
 python test.py \
---name ft_ResNet50_GP_b32x4_sgd0.005_all_relu \
+--name ft_ResNet50_GP_b8x4_adam_tri \
 --test_dir /home/hmhm/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 99;
