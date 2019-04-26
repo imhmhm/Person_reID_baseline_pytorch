@@ -11,6 +11,7 @@ from torch.optim import lr_scheduler
 # import torchvision
 from torchvision import datasets, transforms
 from torch.utils.data.sampler import Sampler
+import torch.nn.functional as F
 
 import numpy as np
 from PIL import Image
@@ -198,7 +199,7 @@ class LSR_loss(nn.Module):
 
         # Max trick (output - max) for softmax
         # return the index of the biggest value in each row
-        maxRow, _ = torch.max(input.item(), 1)
+        maxRow, _ = torch.max(input, 1)
         maxRow = maxRow.unsqueeze(1)
         input = input - maxRow
 
