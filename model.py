@@ -79,7 +79,7 @@ class ft_net(nn.Module):
             model_ft.layer4[0].conv2.stride = (1, 1)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        # model_ft.fc = nn.Sequential()
+        model_ft.fc = nn.Sequential()
         self.model = model_ft
 
         # self.classifier = ClassBlock(2048, class_num, droprate)
@@ -135,9 +135,10 @@ class ft_net_feature(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
-        x = x.view(x.size(0), x.size(1))
-        feature = self.classifier.add_block(x)
-        x = self.classifier.classifier(feature)
+        feature = x.view(x.size(0), x.size(1))
+        # feature = self.classifier.add_block(x)
+        # x = self.classifier.classifier(feature)
+        x = self.classifier(feature)
         return feature, x
 
 

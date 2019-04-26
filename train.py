@@ -11,6 +11,7 @@ from torch.optim import lr_scheduler
 # import torchvision
 from torchvision import datasets, transforms
 from torch.utils.data.sampler import Sampler
+import torch.nn.functional as F
 
 import numpy as np
 from PIL import Image
@@ -23,7 +24,6 @@ import copy
 import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
 from random_erasing import RandomErasing
-from hard_mine_triplet_loss import HardTripletLoss
 # import json
 import yaml
 from tqdm import tqdm
@@ -55,7 +55,7 @@ parser.add_argument('--train_all', action='store_true', help='use all training d
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
+parser.add_argument('--erasing_p', default=0.0, type=float, help='Random Erasing probability, in [0,1]')
 
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
@@ -200,7 +200,7 @@ class LSR_loss(nn.Module):
 
         # Max trick (output - max) for softmax
         # return the index of the biggest value in each row
-        maxRow, _ = torch.max(input.item(), 1)
+        maxRow, _ = torch.max(input, 1)
         maxRow = maxRow.unsqueeze(1)
         input = input - maxRow
 
@@ -431,17 +431,10 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
                     if opt.mixup:
-<<<<<<< HEAD
-                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
-                    elif opt.triplet:
-                        loss_xent = criterion(outputs, labels)
-                        loss_htri = criterion_htri(features, labels)
-=======
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels)
                         loss_htri = criterions['tri'](features, labels)
->>>>>>> e2f0cb6e31f74cc296542f5bca2eb8620eae1ed9
                         loss = 1.0 * loss_xent + 1.0 * loss_htri
                     else:
                         loss = criterions['xent'](outputs, labels)
