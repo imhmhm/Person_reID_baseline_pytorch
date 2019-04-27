@@ -1,5 +1,10 @@
 import os
 from shutil import copyfile
+import numpy as np
+import math
+from glob import glob
+import random
+import sys
 
 # You only need to change this line to your dataset download path
 download_path = '/home/tianlab/hengheng/reid/Market'
@@ -8,7 +13,7 @@ if not os.path.isdir(download_path):
     print('please change the download_path')
 
 # save_path = download_path + '/pytorch_1toM'
-save_path = download_path + '/pytorch'
+save_path = download_path + '/pytorch_noise_0.5'
 
 if not os.path.isdir(save_path):
     os.mkdir(save_path)
@@ -76,7 +81,14 @@ if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 
 for root, dirs, files in os.walk(train_path, topdown=True):
-    for name in files:
+    file_count = len(files)
+    files = np.array(files)
+    if file_count == 0:
+        continue
+    p = 0.5
+    index = np.random.choice(file_count, size=math.ceil(file_count * p), replace=False)
+    remain = list(set(range(file_count)) - set(index))
+    for name in files[remain]:
         if not name[-3:]=='jpg':
             continue
         ID  = name.split('_')
@@ -85,28 +97,43 @@ for root, dirs, files in os.walk(train_path, topdown=True):
         if not os.path.isdir(dst_path):
             os.mkdir(dst_path)
         copyfile(src_path, dst_path + '/' + name)
+
+    id_list = glob(train_save_path + '/*')
+    # print(len(id_list))
+
+    for name in files[index]:
+        if not name[-3:]=='jpg':
+            continue
+        ID  = name.split('_')
+        src_path = train_path + '/' + name
+        dst_path = train_save_path + '/' + ID[0]
+        remain_list = list(set(id_list) - set([dst_path]))
+        dst_path_noise = random.choice(remain_list)
+        if not os.path.isdir(dst_path_noise):
+            os.mkdir(dst_path_noise)
+        copyfile(src_path, dst_path_noise + '/' + name)
 
 
 #---------------------------------------
-#train_val
-train_path = download_path + '/bounding_box_train'
-train_save_path = save_path + '/train'
-val_save_path = save_path + '/val'
-if not os.path.isdir(train_save_path):
-    os.mkdir(train_save_path)
-    os.mkdir(val_save_path)
-
-for root, dirs, files in os.walk(train_path, topdown=True):
-    for name in files:
-        if not name[-3:]=='jpg':
-            continue
-        ID  = name.split('_')
-        src_path = train_path + '/' + name
-        dst_path = train_save_path + '/' + ID[0]
-        if not os.path.isdir(dst_path):
-            os.mkdir(dst_path)
-            dst_path = val_save_path + '/' + ID[0]  #first image is used as val image
-            os.mkdir(dst_path)
-        copyfile(src_path, dst_path + '/' + name)
+# #train_val
+# train_path = download_path + '/bounding_box_train'
+# train_save_path = save_path + '/train'
+# val_save_path = save_path + '/val'
+# if not os.path.isdir(train_save_path):
+#     os.mkdir(train_save_path)
+#     os.mkdir(val_save_path)
+#
+# for root, dirs, files in os.walk(train_path, topdown=True):
+#     for name in files:
+#         if not name[-3:]=='jpg':
+#             continue
+#         ID  = name.split('_')
+#         src_path = train_path + '/' + name
+#         dst_path = train_save_path + '/' + ID[0]
+#         if not os.path.isdir(dst_path):
+#             os.mkdir(dst_path)
+#             dst_path = val_save_path + '/' + ID[0]  #first image is used as val image
+#             os.mkdir(dst_path)
+#         copyfile(src_path, dst_path + '/' + name)
 
 #---------------------------------------

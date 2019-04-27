@@ -19,6 +19,7 @@ import os
 from model import ft_net, ft_net_dense, ft_net_NAS, PCB
 from random_erasing import RandomErasing
 import yaml
+from tqdm import tqdm
 from shutil import copyfile
 
 version =  torch.__version__
@@ -117,13 +118,13 @@ if opt.train_all:
 image_datasets = {}
 image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train' + train_all),
                                           data_transforms['train'])
-image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
-                                          data_transforms['val'])
+# image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
+#                                           data_transforms['val'])
 
 dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
                                              shuffle=True, num_workers=8, pin_memory=True) # 8 workers may work faster
-              for x in ['train', 'val']}
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+              for x in ['train']}
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train']}
 class_names = image_datasets['train'].classes
 
 use_gpu = torch.cuda.is_available()
@@ -146,10 +147,10 @@ print(time.time()-since)
 
 y_loss = {} # loss history
 y_loss['train'] = []
-y_loss['val'] = []
+# y_loss['val'] = []
 y_err = {}
 y_err['train'] = []
-y_err['val'] = []
+# y_err['val'] = []
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
@@ -162,7 +163,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
+        for phase in ['train']:
             if phase == 'train':
                 scheduler.step()
                 model.train(True)  # Set model to training mode
@@ -172,7 +173,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_loss = 0.0
             running_corrects = 0.0
             # Iterate over data.
-            for data in dataloaders[phase]:
+            for data in tqdm(dataloaders[phase]):
                 # get the inputs
                 inputs, labels = data
                 now_batch_size,c,h,w = inputs.shape
@@ -241,11 +242,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0-epoch_acc)
             # deep copy the model
-            if phase == 'val':
-                last_model_wts = model.state_dict()
-                if epoch%10 == 9:
-                    save_network(model, epoch)
-                draw_curve(epoch)
+            # if phase == 'val':
+        last_model_wts = model.state_dict()
+        if epoch%10 == 9:
+            save_network(model, epoch)
+        draw_curve(epoch)
 
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -273,9 +274,9 @@ ax1 = fig.add_subplot(122, title="top1err")
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
-    ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+    # ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
     ax1.plot(x_epoch, y_err['train'], 'bo-', label='train')
-    ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
+    # ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
@@ -317,7 +318,8 @@ if not opt.PCB:
     ignored_params = list(map(id, model.classifier.parameters() ))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
-             {'params': base_params, 'lr': 0.1*opt.lr},
+             # {'params': base_params, 'lr': 0.1*opt.lr},
+             {'params': base_params, 'lr': opt.lr},
              {'params': model.classifier.parameters(), 'lr': opt.lr}
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
