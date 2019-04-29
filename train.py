@@ -12,6 +12,7 @@ from torch.optim import lr_scheduler
 from torchvision import datasets, transforms
 from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
+import torch.backends.cudnn as cudnn
 
 import numpy as np
 from PIL import Image

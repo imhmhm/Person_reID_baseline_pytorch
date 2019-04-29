@@ -5,6 +5,7 @@ from __future__ import print_function, division
 import argparse
 import torch
 import torch.nn as nn
+import torch.backends.cudnn as cudnn
 # import torch.optim as optim
 # from torch.optim import lr_scheduler
 # from torch.autograd import Variable
