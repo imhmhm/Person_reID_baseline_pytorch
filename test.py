@@ -39,7 +39,7 @@ opt = parser.parse_args()
 #### load config ####
 config_path = os.path.join('./model', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
-    config = yaml.load(stream, Loader=yaml.FullLoader)
+    config = yaml.load(stream)
 opt.PCB = config['PCB']
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
@@ -65,6 +65,7 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
 
 ######################################################################
 # Load Data

@@ -86,6 +86,7 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
 # print(gpu_ids[0])
 
 
@@ -573,6 +574,7 @@ elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
+        # {'params': base_params, 'lr': 0.1 * opt.lr},
         {'params': base_params, 'lr': opt.lr},
         {'params': model.model.fc.parameters(), 'lr': opt.lr},
         {'params': model.classifier.parameters(), 'lr': opt.lr}
@@ -605,9 +607,11 @@ else:
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.adam:
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 else:
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 
 ######################################################################
 # Train and evaluate

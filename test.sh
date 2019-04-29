@@ -1,5 +1,5 @@
 python test.py \
---name ft_ResNet50_b32x4_adam_tri_afterbn \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set Market \
 --which_epoch 59;
@@ -12,31 +12,31 @@ python test.py \
 #--which_epoch \
 
 python test.py \
---name ft_ResNet50_b32x4_adam_tri_afterbn \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set Market \
 --which_epoch 99;
 
-# python test.py \
-# --name ft_ResNet50_b32_ori \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 139;
+python test.py \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
+--test_dir /home/tianlab/hengheng/reid \
+--test_set Market \
+--which_epoch 119;
 
 python test.py \
---name ft_ResNet50_b32x4_adam_tri_afterbn \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 59;
 
 python test.py \
---name ft_ResNet50_b32x4_adam_tri_afterbn \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
 --which_epoch 99;
 
-# python test.py \
-# --name ft_ResNet50_GP_b32_adam \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set DukeMTMC-reID \
-# --which_epoch 139;
+python test.py \
+--name ft_ResNet50_BT_b16x4_sgd0.01_[30_70]_tri \
+--test_dir /home/tianlab/hengheng/reid \
+--test_set DukeMTMC-reID \
+--which_epoch 119;
