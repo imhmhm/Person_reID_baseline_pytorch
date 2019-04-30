@@ -13,7 +13,8 @@ if not os.path.isdir(download_path):
     print('please change the download_path')
 
 # save_path = download_path + '/pytorch_1toM'
-save_path = download_path + '/pytorch_noise_0.5'
+save_path = download_path + '/pytorch_noise_0.3'
+p = 0.3
 
 if not os.path.isdir(save_path):
     os.mkdir(save_path)
@@ -85,7 +86,6 @@ for root, dirs, files in os.walk(train_path, topdown=True):
     files = np.array(files)
     if file_count == 0:
         continue
-    p = 0.5
     index = np.random.choice(file_count, size=math.ceil(file_count * p), replace=False)
     remain = list(set(range(file_count)) - set(index))
     for name in files[remain]:

@@ -32,9 +32,11 @@ parser = argparse.ArgumentParser(description='Training')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
 parser.add_argument('--test_dir',default='/home/tianlab/hengheng/reid/Market/pytorch',type=str, help='./test_data')
+parser.add_argument('--test_set', default='Market', type=str, help='test set name')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
+parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--multi', action='store_true', help='use multiple query' )
 parser.add_argument('--fp16', action='store_true', help='use fp16.' )
@@ -44,7 +46,7 @@ opt = parser.parse_args()
 # load the training config
 config_path = os.path.join('./model',opt.name,'opts.yaml')
 with open(config_path, 'r') as stream:
-        config = yaml.load(stream)
+        config = yaml.load(stream, Loader=yaml.FullLoader)
 opt.fp16 = config['fp16']
 opt.PCB = config['PCB']
 opt.use_dense = config['use_dense']
@@ -59,6 +61,7 @@ else:
 str_ids = opt.gpu_ids.split(',')
 #which_epoch = opt.which_epoch
 name = opt.name
+test_set = opt.test_set
 test_dir = opt.test_dir
 
 gpu_ids = []
@@ -94,7 +97,7 @@ data_transforms = transforms.Compose([
          #   [transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(crop)
           #       for crop in crops]
           # ))
-])nclasses
+])
 
 if opt.PCB:
     data_transforms = transforms.Compose([
@@ -149,7 +152,7 @@ def extract_feature(model,dataloaders):
         n, c, h, w = img.size()
         count += n
         print(count)
-        ff = torch.FloatTensor(n,512).zero_()
+        ff = torch.FloatTensor(n,2048).zero_() # 2048 / 512
 
         if opt.PCB:
             ff = torch.FloatTensor(n,2048,6).zero_() # we have six parts
@@ -225,13 +228,14 @@ if opt.PCB:
     #if opt.fp16:
     #    model = PCB_test(model[1])
     #else:
-        model = PCB_test(model)
+    model = PCB_test(model)
 else:
     #if opt.fp16:
         #model[1].model.fc = nn.Sequential()
         #model[1].classifier = nn.Sequential()
     #else:
-        model.classifier.classifier = nn.Sequential()
+    model.model.fc = nn.Sequential()
+    model.classifier.classifier = nn.Sequential()
 
 # Change to test mode
 model = model.eval()
@@ -246,8 +250,14 @@ with torch.no_grad():
         mquery_feature = extract_feature(model,dataloaders['multi-query'])
 
 # Save to Matlab for check
+feat_dir = os.path.join('./model', name, test_set)
+if not os.path.isdir(feat_dir):
+    os.makedirs(feat_dir)
+
 result = {'gallery_f':gallery_feature.numpy(),'gallery_label':gallery_label,'gallery_cam':gallery_cam,'query_f':query_feature.numpy(),'query_label':query_label,'query_cam':query_cam}
-scipy.io.savemat('pytorch_result.mat',result)
+feat_path = os.path.join('./model', name, test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+scipy.io.savemat(feat_path, result)
 if opt.multi:
     result = {'mquery_f':mquery_feature.numpy(),'mquery_label':mquery_label,'mquery_cam':mquery_cam}
-    scipy.io.savemat('multi_query.mat',result)
+    multi_path = os.path.join('./model', name, test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
+    scipy.io.savemat(multi_path, result)

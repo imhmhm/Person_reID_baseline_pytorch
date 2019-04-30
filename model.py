@@ -72,6 +72,7 @@ class ft_net(nn.Module):
             model_ft.layer4[0].downsample[0].stride = (1,1)
             model_ft.layer4[0].conv2.stride = (1,1)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        model_ft.fc = nn.Sequential()
         self.model = model_ft
         # self.classifier = ClassBlock(2048, class_num, droprate)
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)

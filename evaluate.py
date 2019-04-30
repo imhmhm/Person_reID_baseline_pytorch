@@ -3,7 +3,15 @@ import torch
 import numpy as np
 #import time
 import os
+import argparse
+import csv
 
+parser = argparse.ArgumentParser(description='evaluation')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
+parser.add_argument('--test_set', default='Market', type=str, help='test set name')
+parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
+parser.add_argument('--multi', action='store_true', help='evaluating multi-queries')
+opt = parser.parse_args()
 #######################################################################
 # Evaluate
 def evaluate(qf,ql,qc,gf,gl,gc):
@@ -21,7 +29,7 @@ def evaluate(qf,ql,qc,gf,gl,gc):
     junk_index1 = np.argwhere(gl==-1)
     junk_index2 = np.intersect1d(query_index, camera_index)
     junk_index = np.append(junk_index2, junk_index1) #.flatten())
-    
+
     CMC_tmp = compute_mAP(index, good_index, junk_index)
     return CMC_tmp
 
@@ -42,7 +50,7 @@ def compute_mAP(index, good_index, junk_index):
     mask = np.in1d(index, good_index)
     rows_good = np.argwhere(mask==True)
     rows_good = rows_good.flatten()
-    
+
     cmc[rows_good[0]:] = 1
     for i in range(ngood):
         d_recall = 1.0/ngood
@@ -56,7 +64,8 @@ def compute_mAP(index, good_index, junk_index):
     return ap, cmc
 
 ######################################################################
-result = scipy.io.loadmat('pytorch_result.mat')
+feat_path = os.path.join('./model', opt.name, opt.test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+result = scipy.io.loadmat(feat_path)
 query_feature = result['query_f']
 query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]
@@ -64,14 +73,16 @@ gallery_feature = result['gallery_f']
 gallery_cam = result['gallery_cam'][0]
 gallery_label = result['gallery_label'][0]
 
-multi = os.path.isfile('multi_query.mat')
+# multi = os.path.isfile('multi_query.mat')
+multi = opt.multi
 
 if multi:
-    m_result = scipy.io.loadmat('multi_query.mat')
+    multi_path = os.path.join('./model', opt.name, opt.test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
+    m_result = scipy.io.loadmat(multi_path)
     mquery_feature = m_result['mquery_f']
     mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
-    
+
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
 #print(query_label)
@@ -86,6 +97,11 @@ for i in range(len(query_label)):
 CMC = CMC.float()
 CMC = CMC/len(query_label) #average CMC
 print('Rank@1:%f Rank@5:%f Rank@10:%f mAP:%f'%(CMC[0],CMC[4],CMC[9],ap/len(query_label)))
+csv_path = os.path.join('./model', opt.name, opt.test_set, 'result.csv')
+with open(csv_path, 'a') as csv_file:
+    csv_writer = csv.writer(csv_file, delimiter=',')
+    csv_writer.writerow(['{}'.format(opt.which_epoch), '{:f}'.format(CMC[0]), '{:f}'.format(CMC[4]),
+                         '{:f}'.format(CMC[9]), '{:f}'.format(ap/len(query_label))])
 
 # multiple-query
 CMC = torch.IntTensor(len(gallery_label)).zero_()
