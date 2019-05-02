@@ -5,6 +5,7 @@ from __future__ import print_function, division
 import argparse
 import torch
 import torch.nn as nn
+from torch.backends import cudnn
 # import torch.optim as optim
 # from torch.optim import lr_scheduler
 # from torch.autograd import Variable
@@ -65,6 +66,7 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
 
 ######################################################################
 # Load Data
