@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from warmup_scheduler import WarmupMultiStepLR
 # from torch.autograd import Variable
 # import torchvision
 from torchvision import datasets, transforms
@@ -62,6 +63,7 @@ parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
+parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
@@ -199,6 +201,7 @@ class LSR_loss(nn.Module):
             # N,C,H*W => N,H*W,C
             input = input.transpose(1, 2)
             input = input.contiguous().view(-1, input.size(2))    # N,H*W,C => N*H*W,C
+            # reshape
 
         # Max trick (output - max) for softmax
         # return the index of the biggest value in each row
@@ -305,7 +308,7 @@ dataloaders = dict()
 if opt.use_sampler:
     dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
                                                    sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
-                                                   num_workers=0, drop_last=True)
+                                                   num_workers=8, drop_last=True)
 else:
     dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
                                                        num_workers=8, drop_last=True)
@@ -606,13 +609,16 @@ else:
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
-if opt.adam:
+if opt.warmup and opt.adam:
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+                                         warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
+elif opt.adam:
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
     exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
-    # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
 
 ######################################################################
 # Train and evaluate
