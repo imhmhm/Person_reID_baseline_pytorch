@@ -25,7 +25,7 @@ def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight, std=0.001)
-        if m.bias:
+        if m.bias is not None:
             init.constant_(m.bias, 0.0)
 
 # Defines the new fc layer and classification layer
@@ -50,10 +50,10 @@ class ClassBlock(nn.Module):
         add_block.apply(weights_init_kaiming)
 
         classifier = []
-        # classifier += [nn.Linear(num_bottleneck, class_num)]
+        classifier += [nn.Linear(num_bottleneck, class_num)]
         ########################
         # no bias in classifier
-        classifier += [nn.Linear(num_bottleneck, class_num, bias=False)]
+        # classifier += [nn.Linear(num_bottleneck, class_num, bias=False)]
         #########################
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
@@ -96,7 +96,7 @@ class ft_net(nn.Module):
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
         #######################
         # no shift(bias) in BN
-        self.classifier.add_block[0].bias.requires_grad_(False)
+        # self.classifier.add_block[0].bias.requires_grad_(False)
         #######################
 
         ##### |--bn--|--relu--|--Linear--| #####
@@ -133,6 +133,10 @@ class ft_net_feature(nn.Module):
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
         ##### |--bn--|--Linear--| #####
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+        #######################
+        # no shift(bias) in BN
+        # self.classifier.add_block[0].bias.requires_grad_(False)
+        #######################
 
     def forward(self, x):
         x = self.model.conv1(x)
