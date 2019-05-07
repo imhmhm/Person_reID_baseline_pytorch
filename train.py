@@ -200,6 +200,7 @@ class LSR_loss(nn.Module):
             # N,C,H*W => N,H*W,C
             input = input.transpose(1, 2)
             input = input.contiguous().view(-1, input.size(2))    # N,H*W,C => N*H*W,C
+            # reshape
 
         # Max trick (output - max) for softmax
         # return the index of the biggest value in each row
@@ -306,7 +307,7 @@ dataloaders = dict()
 if opt.use_sampler:
     dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize,
                                                    sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id),
-                                                   num_workers=0, drop_last=True)
+                                                   num_workers=8, drop_last=True)
 else:
     dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
                                                        num_workers=8, drop_last=True)
@@ -643,4 +644,4 @@ if fp16:
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
 model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=100)
+                    num_epochs=120)

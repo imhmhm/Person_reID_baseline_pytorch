@@ -12,20 +12,21 @@ def weights_init_kaiming(m):
     classname = m.__class__.__name__
     # print(classname)
     if classname.find('Conv') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')  # For old pytorch, you may use kaiming_normal.
+        init.kaiming_normal_(m.weight, a=0, mode='fan_in')  # For old pytorch, you may use kaiming_normal.
     elif classname.find('Linear') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
-        init.constant_(m.bias.data, 0.0)
+        init.kaiming_normal_(m.weight, a=0, mode='fan_out')
+        init.constant_(m.bias, 0.0)
     elif classname.find('BatchNorm1d') != -1:
-        init.normal_(m.weight.data, 1.0, 0.02)
-        init.constant_(m.bias.data, 0.0)
+        init.normal_(m.weight, 1.0, 0.02)
+        init.constant_(m.bias, 0.0)
 
 
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
-        init.normal_(m.weight.data, std=0.001)
-        init.constant_(m.bias.data, 0.0)
+        init.normal_(m.weight, std=0.001)
+        if m.bias:
+            init.constant_(m.bias, 0.0)
 
 # Defines the new fc layer and classification layer
 # |--Linear--|--bn--|--relu--|--dropout--|--Linear--|
@@ -49,7 +50,11 @@ class ClassBlock(nn.Module):
         add_block.apply(weights_init_kaiming)
 
         classifier = []
-        classifier += [nn.Linear(num_bottleneck, class_num)]
+        # classifier += [nn.Linear(num_bottleneck, class_num)]
+        ########################
+        # no bias in classifier
+        classifier += [nn.Linear(num_bottleneck, class_num, bias=False)]
+        #########################
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
 
@@ -89,6 +94,10 @@ class ft_net(nn.Module):
 
         ##### |--bn--|--Linear--| #####
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+        #######################
+        # no shift(bias) in BN
+        self.classifier.add_block[0].bias.requires_grad_(False)
+        #######################
 
         ##### |--bn--|--relu--|--Linear--| #####
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True, linear=False)

@@ -168,6 +168,7 @@ def extract_feature(model, dataloaders):
         else:
             fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
             ff = ff.div(fnorm.expand_as(ff))
+            # print(fnorm)
 
         features = torch.cat((features, ff), 0)
     return features
