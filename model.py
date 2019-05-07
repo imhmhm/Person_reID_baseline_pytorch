@@ -133,6 +133,10 @@ class ft_net_feature(nn.Module):
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
         ##### |--bn--|--Linear--| #####
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+        #######################
+        # no shift(bias) in BN
+        self.classifier.add_block[0].bias.requires_grad_(False)
+        #######################
 
     def forward(self, x):
         x = self.model.conv1(x)

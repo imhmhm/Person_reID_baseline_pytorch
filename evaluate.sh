@@ -1,4 +1,4 @@
-python evaluate_v1.py \
+python evaluate_v2.py \
 --name BT_test \
 --test_set Market \
 --which_epoch 119;
