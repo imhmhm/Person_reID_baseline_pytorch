@@ -1,12 +1,13 @@
 python train.py \
---name ft_ResNet50_BT-no_bias_bn_cls-b16x4_adam_warmup_stride1_lsr_re \
+--name ft_ResNet50_b16x4_adam_warmup_lsr_re_triOnly \
 --data_dir /home/hmhm/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
 --droprate 0 \
 --use_sampler \
+--triplet \
 --num_per_id 4 \
---stride 1 \
+--stride 2 \
 --lsr \
 --erasing_p 0.5 \
 --warmup \
@@ -20,7 +21,7 @@ python train.py \
 # # --data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
 
 python train.py \
---name ft_ResNet50_BT-no_bias_bn_cls-b16x4_adam_warmup_stride1_lsr_re_tri \
+--name ft_ResNet50_b16x4_adam_warmup_lsr_triOnly \
 --data_dir /home/hmhm/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
@@ -28,8 +29,20 @@ python train.py \
 --use_sampler \
 --triplet \
 --num_per_id 4 \
---stride 1 \
+--stride 2 \
 --lsr \
---erasing_p 0.5 \
+--warmup \
+--adam;
+
+python train.py \
+--name ft_ResNet50_b16x4_adam_warmup_triOnly \
+--data_dir /home/hmhm/reid/Market/pytorch \
+--train_all \
+--batchsize 64 \
+--droprate 0 \
+--use_sampler \
+--triplet \
+--num_per_id 4 \
+--stride 2 \
 --warmup \
 --adam;
