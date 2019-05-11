@@ -40,7 +40,7 @@ opt = parser.parse_args()
 #### load config ####
 config_path = os.path.join('./model', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
-    config = yaml.load(stream)
+    config = yaml.load(stream, Loader=yaml.FullLoader)
 opt.PCB = config['PCB']
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
