@@ -20,28 +20,28 @@ python train.py \
 # --PCB \
 # --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
 
-python train.py \
---name ft_ResNet50_BT_b16x4_adam_warmup_lsr_tri_insNorm \
---data_dir /home/tianlab/hengheng/reid/Market/pytorch \
---train_all \
---batchsize 64 \
---droprate 0 \
---use_sampler \
---triplet \
---num_per_id 4 \
---stride 2 \
---lsr \
---warmup \
---adam;
-
-python train.py \
---name ft_ResNet50_BT_b16x4_adam_tri_insNorm \
---data_dir /home/tianlab/hengheng/reid/Market/pytorch \
---train_all \
---batchsize 64 \
---droprate 0 \
---use_sampler \
---triplet \
---num_per_id 4 \
---stride 2 \
---adam;
+# python train.py \
+# --name ft_ResNet50_BT_b16x4_adam_warmup_lsr_tri_insNorm \
+# --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+# --train_all \
+# --batchsize 64 \
+# --droprate 0 \
+# --use_sampler \
+# --triplet \
+# --num_per_id 4 \
+# --stride 2 \
+# --lsr \
+# --warmup \
+# --adam;
+#
+# python train.py \
+# --name ft_ResNet50_BT_b16x4_adam_tri_insNorm \
+# --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+# --train_all \
+# --batchsize 64 \
+# --droprate 0 \
+# --use_sampler \
+# --triplet \
+# --num_per_id 4 \
+# --stride 2 \
+# --adam;
