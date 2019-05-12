@@ -573,7 +573,8 @@ criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
-    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
+    # BT: 0.00035
+    optimizer_ft = optim.Adam(model.parameters(), 0.0001, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -610,11 +611,13 @@ else:
 
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.warmup and opt.adam:
-    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+    # BT: [40,70]
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[20, 40, 80], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
+    # BT: [40,70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[20, 40, 80], gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
