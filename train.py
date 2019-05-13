@@ -612,12 +612,12 @@ else:
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.warmup and opt.adam:
     # BT: [40,70]
-    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[20, 40, 80], gamma=0.1,
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40,70], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
     # BT: [40,70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[20, 40, 80], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40,70], gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
