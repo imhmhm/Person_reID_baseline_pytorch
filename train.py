@@ -65,6 +65,7 @@ parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--epoch', default=120, type=int, help='epoch number')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
@@ -421,8 +422,8 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     inputs, labels = inputs, labels
 
                 if opt.mixup:
-                    # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -572,7 +573,8 @@ criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
-    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
+    # BT: 0.00035
+    optimizer_ft = optim.Adam(model.parameters(), 0.0002, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -609,11 +611,13 @@ else:
 
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.warmup and opt.adam:
+    # BT: [40, 70]
     exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
+    # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[250, 290], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
@@ -644,4 +648,4 @@ if fp16:
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
 model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=120)
+                    num_epochs=opt.epoch)
