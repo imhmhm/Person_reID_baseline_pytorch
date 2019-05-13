@@ -1,5 +1,5 @@
 python train.py \
---name ft_ResNet50_BT_b16x4_adam_warmup_tri_insNorm_lr1e-4 \
+--name ft_ResNet50_BT_b16x4_adam_tri_insNorm_lr2e-4_ep300_[250_290] \
 --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
@@ -8,7 +8,7 @@ python train.py \
 --triplet \
 --num_per_id 4 \
 --stride 2 \
---warmup \
+--epoch 300 \
 --adam;
 
 # --stride 1 \
@@ -34,14 +34,3 @@ python train.py \
 # --warmup \
 # --adam;
 #
-python train.py \
---name ft_ResNet50_BT_b16x4_adam_tri_insNorm_lr1e-4 \
---data_dir /home/tianlab/hengheng/reid/Market/pytorch \
---train_all \
---batchsize 64 \
---droprate 0 \
---use_sampler \
---triplet \
---num_per_id 4 \
---stride 2 \
---adam;
