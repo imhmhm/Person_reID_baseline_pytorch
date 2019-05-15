@@ -25,6 +25,7 @@ from collections import defaultdict
 import copy
 import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
+from resnet_beta import resnet50
 from random_erasing import RandomErasing
 # import json
 import yaml
@@ -553,9 +554,11 @@ if opt.use_dense:
 elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
 elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
-    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+    # model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+    model = resnet50(num_classes=len(class_names), loss={'xent', 'htri'}, testing=False)
 else:
-    model = ft_net(len(class_names), opt.droprate, opt.stride)
+    # model = ft_net(len(class_names), opt.droprate, opt.stride)
+    model = resnet50(num_classes=len(class_names), loss={'xent'}, testing=False)
 
 if opt.PCB:
     model = PCB(len(class_names))
@@ -575,7 +578,7 @@ criterions['tri'] = HardTripletLoss(margin=0.3)
 
 if opt.adam:
     # BT: 0.00035
-    optimizer_ft = optim.Adam(model.parameters(), 0.0002, weight_decay=5e-4)
+    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -618,7 +621,7 @@ if opt.warmup and opt.adam:
 elif opt.adam:
     # BT: [40,70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[250,290], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40,70], gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[30, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)

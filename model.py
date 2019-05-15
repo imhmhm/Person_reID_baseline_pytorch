@@ -106,10 +106,6 @@ class ft_net(nn.Module):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
-        # test
-        c = x.size(1)
-        x = nn.InstanceNorm2d(c)(x)
-        #
         x = self.model.maxpool(x)
         x = self.model.layer1(x)
         x = self.model.layer2(x)
@@ -146,10 +142,6 @@ class ft_net_feature(nn.Module):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
-        # test
-        c = x.size(1)
-        x = nn.InstanceNorm2d(c)(x)
-        #
         x = self.model.maxpool(x)
         x = self.model.layer1(x)
         x = self.model.layer2(x)
