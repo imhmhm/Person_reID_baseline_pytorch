@@ -260,13 +260,13 @@ resnet152: block=Bottleneck, layers=[3, 8, 36, 3]
 """
 
 
-def resnet50(num_classes, loss, testing, pretrained='imagenet', **kwargs):
+def resnet50(num_classes, loss, testing, last_stride=2, pretrained='imagenet', **kwargs):
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=Bottleneck,
         layers=[3, 4, 6, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=None,
         dropout_p=None,
         testing=testing,
@@ -277,13 +277,13 @@ def resnet50(num_classes, loss, testing, pretrained='imagenet', **kwargs):
     return model
 
 
-def resnet50_fc512(num_classes, loss, testing, pretrained='imagenet', **kwargs):
+def resnet50_fc512(num_classes, loss, testing, last_stride=2, pretrained='imagenet', **kwargs):
     model = ResNet(
         num_classes=num_classes,
         loss=loss,
         block=Bottleneck,
         layers=[3, 4, 6, 3],
-        last_stride=2,
+        last_stride=last_stride,
         fc_dims=[512],
         dropout_p=None,
         testing=testing,

@@ -555,10 +555,10 @@ elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
 elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
     # model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
-    model = resnet50(num_classes=len(class_names), loss={'xent', 'htri'}, testing=False)
+    model = resnet50(num_classes=len(class_names), loss={'xent', 'htri'}, testing=False, last_stride=opt.stride)
 else:
     # model = ft_net(len(class_names), opt.droprate, opt.stride)
-    model = resnet50(num_classes=len(class_names), loss={'xent'}, testing=False)
+    model = resnet50(num_classes=len(class_names), loss={'xent'}, testing=False, last_stride=opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))
