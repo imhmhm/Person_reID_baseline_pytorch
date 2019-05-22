@@ -429,7 +429,8 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
+        # for phase in ['train', 'val']:
+        for phase in ['train']:
             if phase == 'train':
                 scheduler.step()
                 model.train(True)  # Set model to training mode
@@ -534,11 +535,11 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0 - epoch_acc)
             # deep copy the model
-            if phase == 'val':
-                last_model_wts = model.state_dict()
-                if epoch % 10 == 9:
-                    save_network(model, epoch)
-                draw_curve(epoch)
+            # if phase == 'val':
+            last_model_wts = model.state_dict()
+            if epoch % 10 == 9:
+                save_network(model, epoch)
+            draw_curve(epoch)
 
         print()
 
@@ -565,9 +566,9 @@ ax1 = fig.add_subplot(122, title="top1err")
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
-    ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+    # ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
     ax1.plot(x_epoch, y_err['train'], 'bo-', label='train')
-    ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
+    # ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
