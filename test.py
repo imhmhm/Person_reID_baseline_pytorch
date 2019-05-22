@@ -17,7 +17,7 @@ import os
 import sys
 import scipy.io
 import yaml
-from resnet_beta import resnet50
+# from resnet_beta import resnet50
 from model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_feature
 
 ######################################################################
@@ -209,8 +209,8 @@ if opt.use_dense:
 elif opt.use_NAS:
     model_structure = ft_net_NAS(opt.nclasses)
 else:
-    # model_structure = ft_net(opt.nclasses, stride=opt.stride)
-    model_structure = resnet50(num_classes=opt.nclasses, loss={'xent'}, testing=True, last_stride=opt.stride)
+    model_structure = ft_net(opt.nclasses, stride=opt.stride)
+    # model_structure = resnet50(num_classes=opt.nclasses, loss={'xent'}, testing=True, last_stride=opt.stride)
 
 if opt.PCB:
     model_structure = PCB(opt.nclasses)
@@ -219,13 +219,13 @@ model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
 if not opt.PCB:
-    # model.model.fc = nn.Sequential()
+    model.model.fc = nn.Sequential()
     ##### feature after avgpool #####
-    model.classifier = nn.Sequential()
+    # model.classifier = nn.Sequential()
     ##### feature after BN #####
     # model.classifier.add_block[0] = nn.Sequential()
     # model.classifier.add_block[1] = nn.Sequential()
-    # model.classifier.classifier = nn.Sequential()
+    model.classifier.classifier = nn.Sequential()
     # print(model.classifier)
     # sys.exit()
 else:

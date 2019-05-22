@@ -25,7 +25,7 @@ from collections import defaultdict
 import copy
 import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
-from resnet_beta import resnet50
+# from resnet_beta import resnet50
 from random_erasing import RandomErasing
 # import json
 import yaml
@@ -554,11 +554,11 @@ if opt.use_dense:
 elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
 elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
-    # model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
-    model = resnet50(num_classes=len(class_names), loss={'xent', 'htri'}, testing=False, last_stride=opt.stride)
+    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+    # model = resnet50(num_classes=len(class_names), loss={'xent', 'htri'}, testing=False, last_stride=opt.stride)
 else:
-    # model = ft_net(len(class_names), opt.droprate, opt.stride)
-    model = resnet50(num_classes=len(class_names), loss={'xent'}, testing=False, last_stride=opt.stride)
+    model = ft_net(len(class_names), opt.droprate, opt.stride)
+    # model = resnet50(num_classes=len(class_names), loss={'xent'}, testing=False, last_stride=opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))

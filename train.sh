@@ -1,5 +1,5 @@
 python train.py \
---name ft_ResNet50_BT_b16x4_adam_tri_warmup_insNorm_beta \
+--name ft_ResNet50_BT_b16x4_adam_tri_warmup_gpNorm_L1_B3 \
 --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
@@ -9,7 +9,6 @@ python train.py \
 --num_per_id 4 \
 --stride 2 \
 --epoch 120 \
---lsr \
 --warmup \
 --adam;
 
