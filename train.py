@@ -27,6 +27,7 @@ import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
 from random_erasing import RandomErasing
 from hard_mine_triplet_loss import HardTripletLoss
+from hard_mine_triplet_loss_mixup_v1 import TripletLoss_Mixup
 # import json
 import yaml
 from tqdm import tqdm
@@ -352,6 +353,43 @@ def mixup_data(x, y, alpha=1.0, use_cuda=True):
     y_a, y_b = y, y[index]
     return mixed_x, y_a, y_b, lam
 
+def mixup_data_metric(x, y, alpha=1.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+
+        # N identities
+        index_N = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
+        index_K = torch.randperm(4).cuda()
+        index_random_id = torch.zeros(batch_size, dtype=torch.int64).cuda()
+        for i in range(batch_size):
+            # K instances
+            index_random_id[i] = index_N[i // 4] * 4 + index_K[i % 4]
+    else:
+        index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+
+    mixed_x_same_id = lam * x + (1 - lam) * x[index_random_id, :]
+    y_b_same_id = y[index_random_id]
+
+    mixed_x_double = torch.cat((mixed_x, mixed_x_same_id))
+    y_a_double = torch.cat((y_a, y_a))
+    y_b_double = torch.cat((y_b, y_b_same_id))
+
+    # print(y_b_double)
+    # sys.exit()
+
+    return mixed_x_double, y_a_double, y_b_double, lam
+
+
 def stitch_data(x, y, alpha=3.0, use_cuda=True):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     if alpha > 0:
@@ -422,7 +460,9 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     inputs, labels = inputs, labels
 
                 if opt.mixup:
-                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    now_batch_size = inputs.shape[0]
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
 
                 # zero the parameter gradients
@@ -435,7 +475,12 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     outputs = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
-                    if opt.mixup:
+
+                    if opt.mixup and opt.triplet:
+                        loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
+                        loss_htri = criterions['tri'](features, targets_a, targets_b, lam)
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                    elif opt.mixup:
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels)
@@ -474,17 +519,17 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                         running_loss_htri += loss_htri.item() * now_batch_size
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
-                running_corrects += float(torch.sum(preds == labels))
+                # running_corrects += float(torch.sum(preds == labels))
 
             epoch_loss = running_loss / dataset_sizes[phase]
             if opt.triplet:
                 epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
                 epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
                 print('{} loss_xent: {:.4f} loss_tri: {:.4f}'.format(phase, epoch_loss_xent, epoch_loss_tri))
-            epoch_acc = running_corrects / dataset_sizes[phase]
+            # epoch_acc = running_corrects / dataset_sizes[phase]
+            epoch_acc = 1.0
 
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
+            print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0 - epoch_acc)
@@ -569,12 +614,16 @@ if opt.lsr:
     criterions['xent'] = LSR_loss(epsilon=0.1)
 else:
     criterions['xent'] = nn.CrossEntropyLoss()
-criterions['tri'] = HardTripletLoss(margin=0.3)
+
+if opt.mixup:
+    criterions['tri'] = TripletLoss_Mixup(margin=0.3)
+else:
+    criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
     # BT: 0.00035
-    optimizer_ft = optim.Adam(model.parameters(), 0.0002, weight_decay=5e-4)
+    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -617,7 +666,7 @@ if opt.warmup and opt.adam:
 elif opt.adam:
     # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[250, 290], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)

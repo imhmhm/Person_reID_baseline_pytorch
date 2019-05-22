@@ -28,7 +28,7 @@ parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...o
 parser.add_argument('--test_dir', default='/home/hmhm/reid', type=str, help='test set base path')
 parser.add_argument('--test_set', default='Market', type=str, help='test set name')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
-parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=64, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB')

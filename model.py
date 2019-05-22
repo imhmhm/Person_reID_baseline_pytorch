@@ -112,7 +112,7 @@ class ft_net(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
-        x = x.view(x.size(0), x.size(1))
+        x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
 
@@ -148,7 +148,7 @@ class ft_net_feature(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
-        feature = x.view(x.size(0), x.size(1))
+        feature = x.view(x.size(0), -1)
         x = self.classifier(feature)
         return feature, x
 
@@ -175,7 +175,7 @@ class ft_net_sub(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
-        x = x.view(x.size(0), x.size(1))
+        x = x.view(x.size(0), -1)
         id = self.classifier_reid(x)
         gen = self.classifier_gen(x)
         return id, gen
