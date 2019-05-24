@@ -480,7 +480,8 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     if opt.mixup and opt.triplet:
                         loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                         loss_htri = criterions['tri'](features, targets_a, targets_b, lam)
-                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        # loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        loss = loss_htri
                     elif opt.mixup:
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
@@ -662,7 +663,7 @@ else:
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.warmup and opt.adam:
     # BT: [40, 70]
-    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
     # BT: [40, 70]

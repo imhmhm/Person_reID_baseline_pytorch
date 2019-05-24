@@ -1,5 +1,5 @@
 python train.py \
---name ft_ResNet50_b16x4_adam_mixup_metric_test \
+--name ft_ResNet50_b16x4_adam_mixup_metric_test_v2 \
 --data_dir /home/hmhm/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
