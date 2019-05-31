@@ -1,31 +1,31 @@
 python evaluate.py \
---name ft_ResNet50_b16x4_adam_mixup_metric_test \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
 --test_set Market \
---which_epoch 69;
+--which_epoch 59;
 
 # # DukeMTMC-reID / Market
 
 python evaluate.py \
---name ft_ResNet50_b16x4_adam_mixup_metric_test \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
+--test_set Market \
+--which_epoch 99;
+
+python evaluate.py \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
 --test_set Market \
 --which_epoch 119;
 
-# python evaluate.py \
-# --name ft_ResNet50_b16x4_adam_mixup_metric_test \
-# --test_set Market \
-# --which_epoch 199;
-
 python evaluate.py \
---name ft_ResNet50_b16x4_adam_mixup_metric_test \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
 --test_set DukeMTMC-reID \
---which_epoch 69;
+--which_epoch 59;
 
 python evaluate.py \
---name ft_ResNet50_b16x4_adam_mixup_metric_test \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
+--test_set DukeMTMC-reID \
+--which_epoch 99;
+
+python evaluate.py \
+--name ft_ResNet50_b16x4_adam_stitch_metric_test_v2_easyPos \
 --test_set DukeMTMC-reID \
 --which_epoch 119;
-
-# python evaluate.py \
-# --name ft_ResNet50_b16x4_adam_mixup_metric_test \
-# --test_set DukeMTMC-reID \
-# --which_epoch 199;
