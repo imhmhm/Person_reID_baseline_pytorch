@@ -362,32 +362,43 @@ def mixup_data_metric(x, y, alpha=1.0, use_cuda=True):
 
     batch_size = x.size()[0]
     if use_cuda:
-        index = torch.randperm(batch_size).cuda()
+        # index = torch.randperm(batch_size).cuda()
 
         # N identities
-        index_N = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
-        index_K = torch.randperm(4).cuda()
-        index_random_id = torch.zeros(batch_size, dtype=torch.int64).cuda()
+        index_N_1 = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
+        index_N_2 = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
+        index_K_1 = torch.randperm(4).cuda()
+        index_K_2 = torch.randperm(4).cuda()
+        index_random_id_1 = torch.zeros(batch_size, dtype=torch.int64).cuda()
+        index_random_id_2 = torch.zeros(batch_size, dtype=torch.int64).cuda()
         for i in range(batch_size):
             # K instances
-            index_random_id[i] = index_N[i // 4] * 4 + index_K[i % 4]
+            index_random_id_1[i] = index_N_1[i // 4] * 4 + index_K_1[i % 4]
+            index_random_id_2[i] = index_N_2[i // 4] * 4 + index_K_2[i % 4]
     else:
         index = torch.randperm(batch_size)
 
-    mixed_x = lam * x + (1 - lam) * x[index, :]
-    y_a, y_b = y, y[index]
+    # mixed_x = lam * x + (1 - lam) * x[index, :]
+    # y_a, y_b = y, y[index]
 
-    mixed_x_same_id = lam * x + (1 - lam) * x[index_random_id, :]
-    y_b_same_id = y[index_random_id]
+    mixed_x_same_id_1 = lam * x + (1 - lam) * x[index_random_id_1, :]
+    y_b_same_id_1 = y[index_random_id_1]
+    y_a = y
 
-    mixed_x_double = torch.cat((mixed_x, mixed_x_same_id))
+    mixed_x_same_id_2 = lam * x + (1 - lam) * x[index_random_id_2, :]
+    y_b_same_id_2 = y[index_random_id_2]
+
+    mixed_x_double = torch.cat((mixed_x_same_id_1, mixed_x_same_id_2))
     y_a_double = torch.cat((y_a, y_a))
-    y_b_double = torch.cat((y_b, y_b_same_id))
+    y_b_double = torch.cat((y_b_same_id_1, y_b_same_id_2))
 
+    # print(y_a_double)
     # print(y_b_double)
+    # print(lam)
     # sys.exit()
 
     return mixed_x_double, y_a_double, y_b_double, lam
+    # return mixed_x_same_id, y_a, y_b_same_id, lam
 
 
 def stitch_data(x, y, alpha=3.0, use_cuda=True):
@@ -461,9 +472,9 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     inputs, labels = inputs, labels
 
                 if opt.mixup:
-                    # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    now_batch_size = inputs.shape[0]
+                    inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=1.0, use_cuda=use_gpu)
+                    # now_batch_size = inputs.shape[0]
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
 
                 # zero the parameter gradients
@@ -663,12 +674,12 @@ else:
 # Decay LR by a factor of 0.1 every 40 epochs
 if opt.warmup and opt.adam:
     # BT: [40, 70]
-    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1,
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
     # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[80, 150], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)

@@ -1,17 +1,19 @@
-python train.py \
---name ft_ResNet50_b16x4_adam_mixup_test_beta3.0_ep200_80_150 \
---data_dir /home/hmhm/reid/Market/pytorch \
+python train_multi.py \
+--name ft_ResNet50_b16x4_adam_mixup_test_lam0.9_pre_test \
+--data_dir_1 /home/hmhm/reid/Market/pytorch \
+--data_dir_2 /home/hmhm/reid/DukeMTMC-reID/pytorch \
 --train_all \
 --batchsize 128 \
 --droprate 0 \
---use_sampler \
 --num_per_id 4 \
 --stride 2 \
---epoch 200 \
+--epoch 120 \
 --mixup \
+--warmup \
+--resume \
 --adam;
 
-# --triplet \
+# # --triplet \
 # # --warmup;
 # # --lr 0.01;
 # # --triplet \
