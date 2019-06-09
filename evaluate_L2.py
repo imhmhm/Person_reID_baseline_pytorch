@@ -17,12 +17,18 @@ opt = parser.parse_args()
 # Evaluate
 
 def evaluate(qf, ql, qc, gf, gl, gc):
-    query = qf
+    score = qf
     ##### cosine similarity #####
-    score = np.dot(gf, query)
+    # score = np.dot(gf, query)
+    ##### L2 distance #####
+    # m, n = query.shape[0], gf.shape[0]
+    # distmat = np.broadcast_to(np.power(query, 2).sum(axis=1, keepdims=True), (m, n)) + \
+    #           np.broadcast_to(np.power(gf, 2).sum(axis=1, keepdims=True), (n, m)).T
+    # score = distmat - 2 * np.dot(query, gf.T)
     # predict index
     index = np.argsort(score)  # from small to large
-    index = index[::-1]
+    # index = index[::-1]
+    # index = index[0]
 
     # index = index[0:2000]
     # good index
@@ -84,7 +90,7 @@ def compute_mAP(index, good_index, junk_index):
 
 
 ######################################################################
-feat_path = os.path.join('./model', opt.name, opt.test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+feat_path = os.path.join('./model', opt.name, opt.test_set, 'pytorch_result_{}_.mat'.format(opt.which_epoch))
 result = scipy.io.loadmat(feat_path)
 query_feature = result['query_f']
 query_cam = result['query_cam'][0]
@@ -102,11 +108,17 @@ if multi:
     mquery_cam = m_result['mquery_cam'][0]
     mquery_label = m_result['mquery_label'][0]
 
+m, n = query_feature.shape[0], gallery_feature.shape[0]
+distmat = np.broadcast_to(np.power(query_feature, 2).sum(axis=1, keepdims=True), (m, n)) + \
+          np.broadcast_to(np.power(gallery_feature, 2).sum(axis=1, keepdims=True), (n, m)).T
+distmat = distmat - 2 * np.dot(query_feature, gallery_feature.T)
+
+
 CMC = torch.IntTensor(len(gallery_label)).zero_()
 ap = 0.0
 # print(query_label)
 for i in range(len(query_label)):
-    ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)
+    ap_tmp, CMC_tmp = evaluate(distmat[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)
     if CMC_tmp[0] == -1:
         continue
     CMC = CMC + CMC_tmp

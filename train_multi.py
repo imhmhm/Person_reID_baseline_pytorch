@@ -383,7 +383,7 @@ class_names = label_datasets.classes
 
 # print(image_datasets['train'].cumulative_sizes)
 # print(image_datasets['train'].__getitem__(12937))
-# print(unlabel_datasets.class_to_idx)
+# print(cumulative_sizes)
 # sys.exit()
 
 use_gpu = torch.cuda.is_available()
@@ -445,13 +445,34 @@ def mixup_data_unlabel(x, y, alpha=1.0, use_cuda=True):
     #     index = torch.randperm(batch_size).cuda()
     # else:
     #     index = torch.randperm(batch_size)
-    lam = 0.9
+    lam = 0.8
     mixed_x = lam * x[0:batch_size//2, :] + (1 - lam) * x[batch_size//2:, :]
     y_a = y[0:batch_size//2]
     y_b = y[batch_size//2:]
     return mixed_x, y_a, y_b, lam
 
-# criterion
+def stitch_data_unlabel(x, y, alpha=3.0, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    # if alpha > 0:
+    #     lam = np.random.beta(alpha, alpha)
+    # else:
+    #     lam = 1
+
+    lam = 0.5
+    batch_size, c, h, w = x.size()
+    # if use_cuda:
+    #     index = torch.randperm(batch_size).cuda()
+    # else:
+    #     index = torch.randperm(batch_size)
+
+    stitch_x = torch.cat((x[0:batch_size//2,:,0:round(h*lam),:], x[batch_size//2:,:,round(h*lam):h,:]), dim=2)
+    # y_a, y_b = y, y[index]
+    y_a = y[0:batch_size//2]
+    y_b = y[batch_size//2:]
+    return stitch_x, y_a, y_b, lam
+
+
+##### criterion #####
 
 
 def mixup_criterion(criterion, pred, y_a, y_b, lam):
@@ -511,7 +532,9 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25, re_epoch
 
                 if opt.mixup:
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = mixup_data_unlabel(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = mixup_data_unlabel(inputs, labels, alpha=0.2, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data_unlabel(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+
                     now_batch_size = inputs.shape[0]
                     # print(targets_a)
                     # print(targets_b)
@@ -577,19 +600,21 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25, re_epoch
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
                 # running_corrects += float(torch.sum(preds == labels))
-                print(preds)
-                print(targets_a)
                 running_corrects += float(torch.sum(preds == targets_a))
-                print(running_corrects)
-                sys.exit()
+                # print(running_corrects)
+                # sys.exit()
 
 
-            epoch_loss = running_loss / dataset_sizes[phase]
+            # epoch_loss = running_loss / dataset_sizes[phase]
+            epoch_loss = running_loss / cumulative_sizes[0]
             if opt.triplet:
-                epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
-                epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
+                # epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
+                # epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
+                epoch_loss_xent = running_loss_xent / cumulative_sizes[0]
+                epoch_loss_tri = running_loss_htri / cumulative_sizes[0]
                 print('{} loss_xent: {:.4f} loss_tri: {:.4f}'.format(phase, epoch_loss_xent, epoch_loss_tri))
-            epoch_acc = running_corrects / dataset_sizes[phase]
+            # epoch_acc = running_corrects / dataset_sizes[phase]
+            epoch_acc = running_corrects / cumulative_sizes[0]
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))

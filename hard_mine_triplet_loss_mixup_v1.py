@@ -13,7 +13,7 @@ class TripletLoss_Mixup(nn.Module):
         super(TripletLoss_Mixup, self).__init__()
         self.margin = margin
         # self.ranking_loss = nn.MarginRankingLoss(margin=margin)
-        self.ranking_loss_1 = nn.MarginRankingLoss(margin=0.8)
+        self.ranking_loss_1 = nn.MarginRankingLoss(margin=1.2)
         self.ranking_loss_2 = nn.MarginRankingLoss(margin=0.3)
         self.ranking_loss_3 = nn.MarginRankingLoss(margin=0.3)
 

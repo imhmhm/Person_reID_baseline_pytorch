@@ -25,7 +25,7 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
         max_rank = num_g
         print("Note: number of gallery samples is quite small, got {}".format(num_g))
     indices = np.argsort(distmat, axis=1)
-    indices = indices[:,::-1]
+    # indices = indices[:,::-1]
     matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
 
     # compute cmc curve for each query
@@ -95,11 +95,11 @@ if multi:
 # CMC = torch.IntTensor(len(gallery_label)).zero_()
 # ap = 0.0
 # print(query_label)
-# m, n = query_feature.shape[0], gallery_feature.shape[0]
-# distmat = np.broadcast_to(np.power(query_feature, 2).sum(axis=1, keepdims=True), (m, n)) + \
-#           np.broadcast_to(np.power(gallery_feature, 2).sum(axis=1, keepdims=True), (n, m)).T
-# distmat = distmat - 2 * np.dot(query_feature, gallery_feature.T)
-distmat = np.dot(query_feature, gallery_feature.T)
+m, n = query_feature.shape[0], gallery_feature.shape[0]
+distmat = np.broadcast_to(np.power(query_feature, 2).sum(axis=1, keepdims=True), (m, n)) + \
+          np.broadcast_to(np.power(gallery_feature, 2).sum(axis=1, keepdims=True), (n, m)).T
+distmat = distmat - 2 * np.dot(query_feature, gallery_feature.T)
+# distmat = np.dot(query_feature, gallery_feature.T)
 CMC, ap = eval_func(distmat, query_label, gallery_label, query_cam, gallery_cam, max_rank=100)
 # for i in range(len(query_label)):
 #     ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)

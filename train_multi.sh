@@ -1,5 +1,5 @@
 python train_multi.py \
---name ft_ResNet50_b16x4_adam_mixup_test_lam0.9_pre_test \
+--name ft_ResNet50_b16x4_adam_stitch_test_lam0.5_pre \
 --data_dir_1 /home/hmhm/reid/Market/pytorch \
 --data_dir_2 /home/hmhm/reid/DukeMTMC-reID/pytorch \
 --train_all \
