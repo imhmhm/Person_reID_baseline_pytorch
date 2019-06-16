@@ -4,6 +4,7 @@ from torch.nn import init
 from torchvision import models
 # from torch.autograd import Variable
 import pretrainedmodels
+import sys
 
 ######################################################################
 
@@ -87,6 +88,10 @@ class ft_net(nn.Module):
         model_ft.fc = nn.Sequential()
         self.model = model_ft
 
+        # self.inorm = nn.InstanceNorm2d(64)
+
+        # self.lnorm = nn.LayerNorm(2048, elementwise_affine=False)
+
         # self.classifier = ClassBlock(2048, class_num, droprate)
 
         ##### |--Linear--|--bn--|--relu--|--dropout--|--Linear--| #####
@@ -106,6 +111,7 @@ class ft_net(nn.Module):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
+        # x = self.inorm(x)
         x = self.model.maxpool(x)
         x = self.model.layer1(x)
         x = self.model.layer2(x)
@@ -113,6 +119,11 @@ class ft_net(nn.Module):
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
         x = x.view(x.size(0), -1)
+
+        # x = self.lnorm(x)
+        # fnorm = torch.norm(x, dim=1, keepdim=True)
+        # x = x.div(fnorm.expand_as(x))
+
         x = self.classifier(x)
         return x
 
@@ -130,6 +141,8 @@ class ft_net_feature(nn.Module):
         model_ft.fc = nn.Sequential()
         self.model = model_ft
 
+        # self.inorm = nn.InstanceNorm2d(64)
+
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
         ##### |--bn--|--Linear--| #####
         self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
@@ -142,6 +155,7 @@ class ft_net_feature(nn.Module):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
+        # x = self.inorm(x)
         x = self.model.maxpool(x)
         x = self.model.layer1(x)
         x = self.model.layer2(x)
@@ -149,6 +163,10 @@ class ft_net_feature(nn.Module):
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
         feature = x.view(x.size(0), -1)
+
+        # fnorm = torch.norm(x, dim=1, keepdim=True)
+        # feature = x.div(fnorm.expand_as(x))
+
         x = self.classifier(feature)
         return feature, x
 

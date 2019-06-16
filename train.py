@@ -14,6 +14,7 @@ from torchvision import datasets, transforms
 from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
 from torch.backends import cudnn
+from tensorboardX import SummaryWriter
 
 import numpy as np
 from PIL import Image
@@ -63,6 +64,8 @@ parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing p
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 
+parser.add_argument('--resume', default=None, type=str, help='resume training')
+
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -92,7 +95,6 @@ if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
     cudnn.benchmark = True
 # print(gpu_ids[0])
-
 
 ######################################################################
 # Load Data
@@ -406,13 +408,33 @@ def stitch_data(x, y, alpha=3.0, use_cuda=True):
     y_a, y_b = y, y[index]
     return stitch_x, y_a, y_b, lam
 
-
-def stitch_data_metric(x, y, alpha=3.0, use_cuda=True):
+def stitch_data_hori(x, y, alpha=3.0, use_cuda=True):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1
+
+    batch_size, c, h, w = x.size()
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    stitch_x = torch.cat((x[:,:,:,0:round(w*lam)], x[index,:,:,round(w*lam):w]), dim=3)
+    y_a, y_b = y, y[index]
+    return stitch_x, y_a, y_b, lam
+
+def stitch_data_metric(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
+    '''Returns VH-mixed inputs, pairs of targets, and lambda'''
+    if alpha1 > 0 and alpha2 > 0:
+        lam1 = np.random.beta(alpha1, alpha1)
+        lam2 = np.random.beta(alpha1, alpha1)
+        lam3 = np.random.beta(alpha2, alpha2)
+    else:
+        lam1 = 1
+        lam2 = 2
+        lam3 = 3
 
     batch_size, c, h, w = x.size()
     if use_cuda:
@@ -434,17 +456,23 @@ def stitch_data_metric(x, y, alpha=3.0, use_cuda=True):
 
     # stitch_x = torch.cat((x[:,:,0:round(h*lam),:], x[index,:,round(h*lam):h,:]), dim=2)
     # y_a, y_b = y, y[index]
-
-    stitch_x_same_id_1 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_1,:,round(h*lam):h,:]), dim=2)
-    y_b_same_id_1 = y[index_random_id_1]
     y_a = y
 
-    stitch_x_same_id_2 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_2,:,round(h*lam):h,:]), dim=2)
+    vert_x_same_id_1 = torch.cat((x[:,:,0:round(h*lam1),:], x[index_random_id_1,:,round(h*lam1):h,:]), dim=2)
+    hori_x_same_id_1 = torch.cat((x[:,:,:,0:round(w*lam2)], x[index_random_id_1,:,:,round(w*lam2):w]), dim=3)
+    mix_x_same_id_1 = lam3 * vert_x_same_id_1 + (1 - lam3) * hori_x_same_id_1
+    y_b_same_id_1 = y[index_random_id_1]
+
+    vert_x_same_id_2 = torch.cat((x[:,:,0:round(h*lam1),:], x[index_random_id_2,:,round(h*lam1):h,:]), dim=2)
+    hori_x_same_id_2 = torch.cat((x[:,:,:,0:round(w*lam2)], x[index_random_id_2,:,:,round(w*lam2):w]), dim=3)
+    mix_x_same_id_2 = lam3 * vert_x_same_id_2 + (1 - lam3) * hori_x_same_id_2
     y_b_same_id_2 = y[index_random_id_2]
 
-    stitch_x_double = torch.cat((stitch_x_same_id_1, stitch_x_same_id_2))
+    stitch_x_double = torch.cat((mix_x_same_id_1, mix_x_same_id_2))
     y_a_double = torch.cat((y_a, y_a))
     y_b_double = torch.cat((y_b_same_id_1, y_b_same_id_2))
+
+    lam = lam1*lam2 + (1-lam1)*lam2*(1-lam3) + lam1*(1-lam2)*lam3
 
     return stitch_x_double, y_a_double, y_b_double, lam
 
@@ -457,13 +485,14 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 # train
 
 
-def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
 
     since = time.time()
 
     # best_model_wts = model.state_dict()
     # best_acc = 0.0
 
+    count = 0
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
@@ -484,8 +513,7 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
             # count = 0
             # Iterate over data.
             for data in tqdm(dataloaders[phase]):
-                # count += 1
-                # print(count)
+
                 # get the inputs
                 inputs, labels = data
                 now_batch_size, c, h, w = inputs.shape
@@ -504,8 +532,9 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    now_batch_size = inputs.shape[0]
+                    # inputs, targets_a, targets_b, lam = stitch_data_hori(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
+                    # now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -520,7 +549,7 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
 
                     if opt.mixup and opt.triplet:
                         loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
-                        loss_htri = criterions['tri'](features, targets_a, targets_b, lam)
+                        loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
                         loss = 1.0 * loss_xent + 1.0 * loss_htri
                         # loss = loss_htri
                     elif opt.mixup:
@@ -553,11 +582,16 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
                     else:
                         loss.backward()
                     optimizer.step()
+                    count += 1
 
                 # statistics
                 if int(version[0]) > 0 or int(version[2]) > 3:  # for the new version like 0.4.0, 0.5.0 and 1.0.0
                     running_loss += loss.item() * now_batch_size
+                    writer.add_scalar('loss', loss.item(), count)
                     if opt.triplet:
+                        writer.add_scalar('xent_loss', loss_xent.item(), count)
+                        writer.add_scalar('tri_loss', loss_htri.item(), count)
+
                         running_loss_xent += loss_xent.item() * now_batch_size
                         running_loss_htri += loss_htri.item() * now_batch_size
                 else:  # for the old version like 0.3.0 and 0.3.1
@@ -585,6 +619,7 @@ def train_model(model, criterions, optimizer, scheduler, num_epochs=25):
 
         print()
 
+    writer.close()
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
@@ -627,6 +662,17 @@ def save_network(network, epoch_label):
     if torch.cuda.is_available():
         network.cuda(gpu_ids[0])
 
+########################################################################
+# load model
+
+
+def load_network(network, resume):
+    epoch = 119
+    save_path = os.path.join('./model', resume, 'net_{}.pth'.format(epoch))
+    network.load_state_dict(torch.load(save_path))
+    return network, epoch
+
+######################################################################
 
 ######################################################################
 # Finetuning the convnet
@@ -648,6 +694,9 @@ if opt.PCB:
     model = PCB(len(class_names))
 
 opt.nclasses = len(class_names)
+
+if opt.resume is not None:
+    model, re_epoch = load_network(model, opt.resume)
 
 print(model)
 
@@ -709,7 +758,7 @@ if opt.warmup and opt.adam:
 elif opt.adam:
     # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
@@ -727,6 +776,8 @@ if not os.path.isdir(dir_name):
 copyfile('./train.py', dir_name + '/train.py')
 copyfile('./model.py', dir_name + '/model.py')
 
+writer = SummaryWriter(log_dir=dir_name, comment='')
+
 # save opts
 with open('%s/opts.yaml' % dir_name, 'w') as fp:
     yaml.dump(vars(opt), fp, default_flow_style=False)
@@ -739,5 +790,5 @@ if fp16:
     # optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
-model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler,
+model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler, writer,
                     num_epochs=opt.epoch)
