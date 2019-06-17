@@ -1,5 +1,5 @@
 python train.py \
---name ft_ResNet50_b16x4_adam_VH-mixup_[40_80] \
+--name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_2] \
 --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
@@ -8,7 +8,10 @@ python train.py \
 --num_per_id 4 \
 --stride 2 \
 --epoch 120 \
+--triplet \
 --mixup \
+--wt_xent 1.0 \
+--wt_tri 2.0 \
 --adam;
 # --fp16 \
 
@@ -25,7 +28,7 @@ python train.py \
 # # --data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
 
 python train.py \
---name ft_ResNet50_b16x4_adam_VH-mixup_metric_[40_80] \
+--name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_1.5] \
 --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
 --train_all \
 --batchsize 64 \
@@ -36,5 +39,6 @@ python train.py \
 --epoch 120 \
 --triplet \
 --mixup \
+--wt_xent 1.0 \
+--wt_tri 1.5 \
 --adam;
-# --fp16 \

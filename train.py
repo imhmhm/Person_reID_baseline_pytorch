@@ -75,6 +75,8 @@ parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
 parser.add_argument('--lsr', action='store_true', help='use label smoothing')
 parser.add_argument('--triplet', action='store_true', help='use triplet loss')
+parser.add_argument('--wt_xent', default=1.0, type=float, help='weight of xent loss')
+parser.add_argument('--wt_tri', default=1.0, type=float, help='weight of metric loss')
 parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
@@ -425,7 +427,7 @@ def stitch_data_hori(x, y, alpha=3.0, use_cuda=True):
     y_a, y_b = y, y[index]
     return stitch_x, y_a, y_b, lam
 
-def stitch_data_metric(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
+def stitch_data_metric_VH(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
     '''Returns VH-mixed inputs, pairs of targets, and lambda'''
     if alpha1 > 0 and alpha2 > 0:
         lam1 = np.random.beta(alpha1, alpha1)
@@ -473,6 +475,48 @@ def stitch_data_metric(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
     y_b_double = torch.cat((y_b_same_id_1, y_b_same_id_2))
 
     lam = lam1*lam2 + (1-lam1)*lam2*(1-lam3) + lam1*(1-lam2)*lam3
+
+    return stitch_x_double, y_a_double, y_b_double, lam
+
+def stitch_data_metric(x, y, alpha=3.0, use_cuda=True):
+    '''Returns VH-mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+
+    else:
+        lam = 1
+
+    batch_size, c, h, w = x.size()
+    if use_cuda:
+        # index = torch.randperm(batch_size).cuda()
+        # N identities
+        index_N_1 = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
+        index_K_1 = torch.randperm(4).cuda()
+        index_random_id_1 = torch.zeros(batch_size, dtype=torch.int64).cuda()
+
+        index_N_2 = torch.randperm(opt.batchsize // opt.num_per_id).cuda()
+        index_K_2 = torch.randperm(4).cuda()
+        index_random_id_2 = torch.zeros(batch_size, dtype=torch.int64).cuda()
+        for i in range(batch_size):
+            # K instances
+            index_random_id_1[i] = index_N_1[i // 4] * 4 + index_K_1[i % 4]
+            index_random_id_2[i] = index_N_2[i // 4] * 4 + index_K_2[i % 4]
+    else:
+        index = torch.randperm(batch_size)
+
+    # stitch_x = torch.cat((x[:,:,0:round(h*lam),:], x[index,:,round(h*lam):h,:]), dim=2)
+    # y_a, y_b = y, y[index]
+    y_a = y
+
+    vert_x_same_id_1 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_1,:,round(h*lam):h,:]), dim=2)
+    y_b_same_id_1 = y[index_random_id_1]
+
+    vert_x_same_id_2 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_2,:,round(h*lam):h,:]), dim=2)
+    y_b_same_id_2 = y[index_random_id_2]
+
+    stitch_x_double = torch.cat((vert_x_same_id_1, vert_x_same_id_2))
+    y_a_double = torch.cat((y_a, y_a))
+    y_b_double = torch.cat((y_b_same_id_1, y_b_same_id_2))
 
     return stitch_x_double, y_a_double, y_b_double, lam
 
@@ -533,7 +577,8 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = stitch_data_hori(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    #inputs, targets_a, targets_b, lam = stitch_data_metric_VH(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
                     # now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients
@@ -550,7 +595,7 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     if opt.mixup and opt.triplet:
                         loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                         loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
-                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        loss = opt.wt_xent * loss_xent + opt.wt_tri * loss_htri
                         # loss = loss_htri
                     elif opt.mixup:
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
