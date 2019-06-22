@@ -68,7 +68,7 @@ parser.add_argument('--resume', default=None, type=str, help='resume training')
 
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.00035, type=float, help='learning rate')
 parser.add_argument('--epoch', default=120, type=int, help='epoch number')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
@@ -689,6 +689,7 @@ def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
     # ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+
     ax1.plot(x_epoch, y_err['train'], 'bo-', label='train')
     # ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
     if current_epoch == 0:
@@ -760,7 +761,7 @@ else:
 
 if opt.adam:
     # BT: 0.00035
-    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
+    optimizer_ft = optim.Adam(model.parameters(), opt.lr, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
