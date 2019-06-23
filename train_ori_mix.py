@@ -28,9 +28,7 @@ import math
 from model import ft_net, ft_net_dense, PCB, ft_net_feature
 from random_erasing import RandomErasing
 from hard_mine_triplet_loss import HardTripletLoss
-from hard_mine_multiple_loss import HardQuadLoss
 from hard_mine_triplet_loss_mixup_v1 import TripletLoss_Mixup
-from contrastive_loss import HardContrastiveLoss
 # import json
 import yaml
 from tqdm import tqdm
@@ -68,14 +66,13 @@ parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
-parser.add_argument('--lr', default=0.00035, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epoch', default=120, type=int, help='epoch number')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
 parser.add_argument('--lsr', action='store_true', help='use label smoothing')
 parser.add_argument('--triplet', action='store_true', help='use triplet loss')
-parser.add_argument('--margin', default=0.3, type=float, help='metric loss margin')
 parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
@@ -170,7 +167,6 @@ if opt.PCB:
 
 if opt.erasing_p > 0:
     transform_train_list = transform_train_list + [RandomErasing(probability=opt.erasing_p, mean=[0.0, 0.0, 0.0])]
-    # transform_train_list = transform_train_list + [RandomErasing(probability=opt.erasing_p, sl = 0.02, sh = 0.2, mean=[0.0, 0.0, 0.0])]
 
 if opt.color_jitter:
     transform_train_list = [transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0)] + transform_train_list
@@ -448,12 +444,10 @@ def stitch_data_metric(x, y, alpha=3.0, use_cuda=True):
     else:
         index = torch.randperm(batch_size)
 
-    # stitch_x = torch.cat((x[:,:,0:round(h*lam),:], x[index,:,round(h*lam):h,:]), dim=2)
-    # y_a, y_b = y, y[index]
+    y_a = y
 
     stitch_x_same_id_1 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_1,:,round(h*lam):h,:]), dim=2)
     y_b_same_id_1 = y[index_random_id_1]
-    y_a = y
 
     stitch_x_same_id_2 = torch.cat((x[:,:,0:round(h*lam),:], x[index_random_id_2,:,round(h*lam):h,:]), dim=2)
     y_b_same_id_2 = y[index_random_id_2]
@@ -512,8 +506,6 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                 if use_gpu:
                     inputs = inputs.cuda().detach()
                     labels = labels.cuda().detach()
-                    # print(labels)
-                    # sys.exit()
                 else:
                     inputs, labels = inputs, labels
 
@@ -521,32 +513,41 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    now_batch_size = inputs.shape[0]
+                    inputs_mix, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    # print(targets_a)
+                    # print(targets_b)
+                    # sys.exit()
+                    # now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
                 # forward
-                if opt.triplet:
+                if opt.triplet and opt.mixup:
+                    features_mix, _ = model(inputs_mix)
+                    _, outputs = model(inputs)
+                elif opt.triplet:
                     features, outputs = model(inputs)
                 else:
                     outputs = model(inputs)
+
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
 
                     if opt.mixup and opt.triplet:
-                        loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
-                        loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
-                        # loss = 1.0 * loss_xent + 1.0 * loss_htri
-                        loss = loss_htri
+                        # loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
+
+                        loss_xent = criterions['xent'](outputs, labels)
+
+                        loss_htri = criterions['tri'](features_mix, targets_a, targets_b, lam, epoch)
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        # loss = loss_htri
                     elif opt.mixup:
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels)
                         loss_htri = criterions['tri'](features, labels)
-                        # loss = 1.0 * loss_xent + 1.0 * loss_htri
-                        loss = loss_htri
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
                     else:
                         loss = criterions['xent'](outputs, labels)
                 else:
@@ -682,15 +683,14 @@ else:
     criterions['xent'] = nn.CrossEntropyLoss()
 
 if opt.mixup:
-    criterions['tri'] = TripletLoss_Mixup(margin=opt.margin)
+    criterions['tri'] = TripletLoss_Mixup(margin=0.3)
 else:
-    # criterions['tri'] = HardTripletLoss(margin=opt.margin)
-    criterions['tri'] = HardQuadLoss(margin=opt.margin)
+    criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
     # BT: 0.00035
-    optimizer_ft = optim.Adam(model.parameters(), opt.lr, weight_decay=5e-4)
+    optimizer_ft = optim.Adam(model.parameters(), 0.00035, weight_decay=5e-4)
 elif not opt.PCB:
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -733,7 +733,7 @@ if opt.warmup and opt.adam:
 elif opt.adam:
     # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1)
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
@@ -748,8 +748,8 @@ dir_name = os.path.join('./model', name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 
-# record every run
 writer = SummaryWriter(logdir=dir_name)
+# record every run
 copyfile('./train.py', dir_name + '/train.py')
 copyfile('./model.py', dir_name + '/model.py')
 

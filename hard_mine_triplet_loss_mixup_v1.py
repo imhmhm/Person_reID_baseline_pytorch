@@ -17,7 +17,7 @@ class TripletLoss_Mixup(nn.Module):
         self.ranking_loss_2 = nn.MarginRankingLoss(margin=0.3)
         self.ranking_loss_3 = nn.MarginRankingLoss(margin=0.3)
 
-    def forward(self, inputs, targets_a, targets_b, lam):
+    def forward(self, inputs, targets_a, targets_b, lam, epoch):
         """
         Args:
             inputs (torch.Tensor): feature matrix with shape (batch_size, feat_dim).
@@ -50,7 +50,8 @@ class TripletLoss_Mixup(nn.Module):
             dist_same_a_and_b_hp.append(dist[i][mask_same_a_and_b[i]].max().unsqueeze(0))
             # dist_same_a_and_b_hp.append(dist[i][mask_same_a_and_b[i]].min().unsqueeze(0))
             dist_dif_a_and_b_hn.append(dist[i][mask_dif_a_and_b[i]].min().unsqueeze(0))
-            if mask_same_a_or_b[i].any():
+            if mask_same_a_or_b[i].any() and epoch > 70:
+            # if mask_same_a_or_b[i].any():
                 dist_same_a_or_b_sp.append(dist[i][mask_same_a_or_b[i]].max().unsqueeze(0))
                 # dist_same_a_or_b_sp.append(dist[i][mask_same_a_or_b[i]].min().unsqueeze(0))
                 dist_same_a_or_b_sn.append(dist[i][mask_same_a_or_b[i]].min().unsqueeze(0))
