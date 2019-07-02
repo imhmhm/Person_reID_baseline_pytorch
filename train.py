@@ -427,6 +427,33 @@ def stitch_data_hori(x, y, alpha=3.0, use_cuda=True):
     y_a, y_b = y, y[index]
     return stitch_x, y_a, y_b, lam
 
+def stitch_data_VH(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha1 > 0 and alpha2 > 0:
+        lam1 = np.random.beta(alpha1, alpha1)
+        lam2 = np.random.beta(alpha1, alpha1)
+        lam3 = np.random.beta(alpha2, alpha2)
+    else:
+        lam1 = 1
+        lam2 = 2
+        lam3 = 3
+
+    batch_size, c, h, w = x.size()
+
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    vert_x = torch.cat((x[:,:,0:round(h*lam1),:], x[index,:,round(h*lam1):h,:]), dim=2)
+    hori_x = torch.cat((x[:,:,:,0:round(w*lam2)], x[index,:,:,round(w*lam2):w]), dim=3)
+    mixed_x = lam3 * vert_x + (1 - lam3) * hori_x
+
+    y_a, y_b = y, y[index]
+    lam = lam1*lam2 + (1-lam1)*lam2*(1-lam3) + lam1*(1-lam2)*lam3
+
+    return mixed_x, y_a, y_b, lam
+
 def stitch_data_metric_VH(x, y, alpha1=3.0, alpha2=0.2, use_cuda=True):
     '''Returns VH-mixed inputs, pairs of targets, and lambda'''
     if alpha1 > 0 and alpha2 > 0:
@@ -576,9 +603,10 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    # inputs, targets_a, targets_b, lam = stitch_data_hori(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    #inputs, targets_a, targets_b, lam = stitch_data_metric_VH(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data_hori(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data_VH(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data_metric_VH(inputs, labels, alpha1=3.0, alpha2=0.2, use_cuda=use_gpu)
                     # now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients

@@ -1,8 +1,8 @@
-python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
---test_dir /home/tianlab/hengheng/reid \
---test_set DukeMTMC-reID \
---which_epoch 59;
+# python test.py \
+# --name ft_ResNet50_b16x4_adam_[40_80] \
+# --test_dir /home/tianlab/hengheng/reid \
+# --test_set DukeMTMC-reID \
+# --which_epoch 49;
 
 # --multi \
 # --PCB \
@@ -10,157 +10,45 @@ python test.py \
 #--which_epoch \
 
 python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
 --test_dir /home/tianlab/hengheng/reid \
---test_set DukeMTMC-reID \
---which_epoch 69;
+--test_set Market \
+--which_epoch 59;
 
 python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
 --test_dir /home/tianlab/hengheng/reid \
---test_set DukeMTMC-reID \
---which_epoch 79;
+--test_set Market \
+--which_epoch 99;
 
 python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
 --test_dir /home/tianlab/hengheng/reid \
---test_set DukeMTMC-reID \
---which_epoch 89;
+--test_set Market \
+--which_epoch 119;
+
+#
+
+# python test.py \
+# --name ft_ResNet50_b16x4_adam_freezeL1L2 \
+# --test_dir /home/tianlab/hengheng/reid \
+# --test_set DukeMTMC-reID \
+# --which_epoch 49;
 
 python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
---which_epoch 39;
+--which_epoch 59;
 
 python test.py \
---name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_duke \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
 --test_dir /home/tianlab/hengheng/reid \
 --test_set DukeMTMC-reID \
---which_epoch 49;
+--which_epoch 99;
 
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_lr3e-4_warmup \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_lr3e-4_warmup \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5_lr3e-4_warmup \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.5 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.6 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.6 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.6 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.7 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.7 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.7 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.8 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.8 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt0.8 \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_1.5] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_1.5] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_1.5] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_2] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 59;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_2] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 99;
-#
-# python test.py \
-# --name ft_ResNet50_b16x4_adam_stitch_metric_wt[1_2] \
-# --test_dir /home/tianlab/hengheng/reid \
-# --test_set Market \
-# --which_epoch 119;
+python test.py \
+--name ft_ResNet50_b16x4_adam_[40_80]_lr2.5e-4_freezeL1L2 \
+--test_dir /home/tianlab/hengheng/reid \
+--test_set DukeMTMC-reID \
+--which_epoch 119;

@@ -88,8 +88,19 @@ class ft_net(nn.Module):
         model_ft.fc = nn.Sequential()
         self.model = model_ft
 
-        # self.inorm = nn.InstanceNorm2d(64)
+        ##########################################
+        # # freeze layers
+        # fixed_names = []
+        # for name, module in self.model._modules.items():
+        #     if name == "layer3":
+        #         # assert fixed_names == ["conv1", "bn1", "relu", "maxpool", "layer1", "layer2"]
+        #         break
+        #     fixed_names.append(name)
+        #     for param in module.parameters():
+        #         param.requires_grad = False
+        ##########################################
 
+        # self.inorm = nn.InstanceNorm2d(64)
         # self.lnorm = nn.LayerNorm(2048, elementwise_affine=False)
 
         # self.classifier = ClassBlock(2048, class_num, droprate)
