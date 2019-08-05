@@ -107,8 +107,8 @@ if not os.path.isdir(save_path):
 
 # ---------------------------------------
 # gen_train
-train_path = download_path + '/gen/1501_train_7p_v4_mixup'
-train_save_path = download_path + '/pytorch/1501_train_7p_v4_mixup'
+train_path = download_path + '/gen/1501_train_7p_v4'
+train_save_path = download_path + '/pytorch/1501_train_7p_v4'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 

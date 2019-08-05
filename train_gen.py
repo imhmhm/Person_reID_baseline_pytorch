@@ -9,7 +9,8 @@ import numpy as np
 
 from tqdm import tqdm
 from shutil import copyfile
-import json
+# import json
+import yaml
 import argparse
 import copy
 import random
@@ -22,6 +23,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from warmup_scheduler import WarmupMultiStepLR
 # from torch.autograd import Variable
 # import torchvision
 from torchvision import datasets, transforms
@@ -31,6 +33,9 @@ from torch.utils.data import DataLoader, ConcatDataset  # Dataset
 from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
 ################################################
+from torch.backends import cudnn
+from tensorboardX import SummaryWriter
+
 from hard_mine_triplet_loss import TripletLoss
 # from hard_mine_multiple_loss import TripletLoss
 # from PIL import Image
@@ -57,21 +62,39 @@ parser.add_argument('--gen_name', default='gen_train_reid', type=str, help='gene
 parser.add_argument('--train_all', action='store_true', help='use all training data')
 parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
+
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--use_resnext', action='store_true', help='use resnext50')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+
+parser.add_argument('--resume', default=None, type=str, help='resume training')
+
+parser.add_argument('--adam', action='store_true', help='use adam optimizer')
+parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
+parser.add_argument('--lr', default=0.00035, type=float, help='learning rate')
+parser.add_argument('--epoch', default=120, type=int, help='epoch number')
+
+parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
+
+parser.add_argument('--lsr', action='store_true', help='use label smoothing')
 parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate')
-parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
+
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
+
 parser.add_argument('--triplet', action='store_true', help='use triplet loss')
-parser.add_argument('--adam', action='store_true', help='use adam optimizer')
-parser.add_argument('--resume', action='store_true', help='resume training')
+parser.add_argument('--wt_xent', default=1.0, type=float, help='weight of xent loss')
+parser.add_argument('--wt_tri', default=1.0, type=float, help='weight of metric loss')
+
+parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
 parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
 parser.add_argument('--prop_real', default=2, type=int, help='ratio of real images per id in a batch')
 parser.add_argument('--prop_gen', default=2, type=int, help='ratio of gen images per id in a batch')
+
 parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
+
 opt = parser.parse_args()
 
 fp16 = opt.fp16
@@ -90,6 +113,8 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
+
 # print(gpu_ids[0])
 
 
@@ -168,8 +193,9 @@ class genDataset(datasets.ImageFolder):
 
 class LSR_loss(nn.Module):
     # change target to range(0,750)
-    def __init__(self):
+    def __init__(self, epsilon):
         super(LSR_loss, self).__init__()
+        self.epsilon = epsilon
 
     # input is the prediction score(torch Variable) 32*752, target is the corresponding label,
     def forward(self, input, target, flg):
@@ -186,11 +212,11 @@ class LSR_loss(nn.Module):
 
         # Max trick (output - max) for softmax
         # outputs.data  return the index of the biggest value in each row
-        maxRow, _ = torch.max(input.data, 1)
+        maxRow, _ = torch.max(input, 1)
         maxRow = maxRow.unsqueeze(1)
-        input.data = input.data - maxRow
+        input = input - maxRow
 
-        epsilon = opt.eps  # 0.4  # follow PT-GAN
+        epsilon = self.epsilon  # 0.4  # follow PT-GAN
         # epsilon = 0.3
         # epsilon = 1.0 # LSRO
         target = target.view(-1, 1)       # batchsize, 1
@@ -470,7 +496,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
+        for phase in ['train']:
             if phase == 'train':
                 scheduler.step()
                 model.train(True)  # Set model to training mode
@@ -481,6 +507,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
             running_corrects = 0.0
             running_loss_xent = 0.0
             running_loss_htri = 0.0
+
             # Iterate over data.
             for data in tqdm(dataloaders[phase]):
                 # get the inputs
@@ -514,14 +541,20 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
 
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
-                    if opt.mixup:
-                        loss = mixup_criterion(criterion, outputs, targets_a, targets_b, lam)
+                    
+                    if opt.mixup and opt.triplet:
+                        loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
+                        loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
+                        loss = opt.wt_xent * loss_xent + opt.wt_tri * loss_htri
+                        # loss = loss_htri
+                    elif opt.mixup:
+                        loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
-                        loss_xent = criterion(outputs, labels, flags)
-                        loss_htri = criterion_htri(features, labels, flags, epoch)
-                        loss = 1.0 * loss_xent + 0.1 * loss_htri
+                        loss_xent = criterions['xent'](outputs, labels, flags)
+                        loss_htri = criterions['tri'](features, labels, flags, epoch)
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
                     else:
-                        loss = criterion(outputs, labels, flags)
+                        loss = criterions['xent'](outputs, labels, flags)
                 else:
                     part = {}
                     sm = nn.Softmax(dim=1)
@@ -591,7 +624,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
 
 ######################################################################
 # Draw Curve
-
+# ---------------------------
 x_epoch = []
 fig = plt.figure()
 ax0 = fig.add_subplot(121, title="loss")
@@ -601,18 +634,19 @@ ax1 = fig.add_subplot(122, title="top1err")
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
-    ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+    # ax0.plot(x_epoch, y_loss['val'], 'ro-', label='val')
+
     ax1.plot(x_epoch, y_err['train'], 'bo-', label='train')
-    ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
+    # ax1.plot(x_epoch, y_err['val'], 'ro-', label='val')
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
     fig.savefig(os.path.join('./model', name, 'train.jpg'))
 
+
 ######################################################################
 # Save model
-
-
+# ---------------------------
 def save_network(network, epoch_label):
     save_filename = 'net_%s.pth' % epoch_label
     save_path = os.path.join('./model', name, save_filename)
@@ -624,11 +658,13 @@ def save_network(network, epoch_label):
 # load model
 
 
-def load_network(network):
-    epoch = 89
-    save_path = os.path.join('./model', name, 'net_{}.pth'.format(epoch))
+def load_network(network, resume):
+    epoch = 119
+    save_path = os.path.join('./model', resume, 'net_{}.pth'.format(epoch))
     network.load_state_dict(torch.load(save_path))
     return network, epoch
+
+######################################################################
 
 ######################################################################
 # Finetuning the convnet
@@ -637,57 +673,50 @@ def load_network(network):
 # Load a pretrainied model and reset final fully connected layer.
 #
 
-
 if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
-elif opt.use_resnext:
-    model = ft_next(751)
-elif (not opt.use_dense) and (not opt.use_resnext) and opt.triplet:
-    model = ft_net_feature(len(class_names), opt.droprate)
+elif opt.use_NAS:
+    model = ft_net_NAS(len(class_names), opt.droprate)
+elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
+    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 else:
-    model = ft_net(len(class_names), opt.droprate)
+    model = ft_net(len(class_names), opt.droprate, opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))
 
-if opt.resume:
-    model, re_epoch = load_network(model)
+opt.nclasses = len(class_names)
+
+if opt.resume is not None:
+    model, re_epoch = load_network(model, opt.resume)
 
 print(model)
 
-if use_gpu:
-    model = model.cuda()
 
-# criterion = nn.CrossEntropyLoss()
-criterion = LSR_loss()
-criterion_htri = TripletLoss(margin=0.3)
+criterions = {}
+if opt.lsr:
+    criterions['xent'] = LSR_loss(epsilon=0.1)
+else:
+    criterions['xent'] = nn.CrossEntropyLoss()
+
+if opt.mixup:
+    criterions['tri'] = TripletLoss_Mixup(margin=0.3)
+else:
+    criterions['tri'] = HardTripletLoss(margin=0.3)
 
 
 if opt.adam:
-    lr = 0.0003
-    adam_beta1 = 0.9
-    adam_beta2 = 0.999
-    weight_decay = 5e-4
-    optimizer_ft = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay,
-                            betas=(adam_beta1, adam_beta2))
-# elif opt.use_resnext:
-#     ignored_params = list(map(id, model.fc.parameters())) + \
-#                      list(map(id, model.classifier.parameters()))
-#     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
-#     optimizer_ft = optim.SGD([
-#              {'params': base_params, 'lr': 0.1*opt.lr},
-#              {'params': model.fc.parameters(), 'lr': opt.lr},
-#              {'params': model.classifier.parameters(), 'lr': opt.lr}
-#          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+    # BT: 0.00035
+    optimizer_ft = optim.Adam(model.parameters(), opt.lr, weight_decay=5e-4)
 elif not opt.PCB:
-    ignored_params = list(map(id, model.model.fc.parameters())) + \
-                     list(map(id, model.classifier.parameters()))
+    ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
-             {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': model.model.fc.parameters(), 'lr': opt.lr},
-             {'params': model.classifier.parameters(), 'lr': opt.lr}
-         ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+        # {'params': base_params, 'lr': 0.1 * opt.lr},
+        {'params': base_params, 'lr': opt.lr},
+        {'params': model.model.fc.parameters(), 'lr': opt.lr},
+        {'params': model.classifier.parameters(), 'lr': opt.lr}
+    ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters()))
     ignored_params += (list(map(id, model.classifier0.parameters()))
@@ -699,23 +728,32 @@ else:
                        # +list(map(id, model.classifier6.parameters() ))
                        # +list(map(id, model.classifier7.parameters() ))
                        )
-    base_params = filter(lambda p: id(
-        p) not in ignored_params, model.parameters())
+    base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
-             {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': model.model.fc.parameters(), 'lr': opt.lr},
-             {'params': model.classifier0.parameters(), 'lr': opt.lr},
-             {'params': model.classifier1.parameters(), 'lr': opt.lr},
-             {'params': model.classifier2.parameters(), 'lr': opt.lr},
-             {'params': model.classifier3.parameters(), 'lr': opt.lr},
-             {'params': model.classifier4.parameters(), 'lr': opt.lr},
-             {'params': model.classifier5.parameters(), 'lr': opt.lr},
-             # {'params': model.classifier6.parameters(), 'lr': 0.01},
-             # {'params': model.classifier7.parameters(), 'lr': 0.01}
-         ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+        {'params': base_params, 'lr': 0.1 * opt.lr},
+        {'params': model.model.fc.parameters(), 'lr': opt.lr},
+        {'params': model.classifier0.parameters(), 'lr': opt.lr},
+        {'params': model.classifier1.parameters(), 'lr': opt.lr},
+        {'params': model.classifier2.parameters(), 'lr': opt.lr},
+        {'params': model.classifier3.parameters(), 'lr': opt.lr},
+        {'params': model.classifier4.parameters(), 'lr': opt.lr},
+        {'params': model.classifier5.parameters(), 'lr': opt.lr},
+        # {'params': model.classifier6.parameters(), 'lr': 0.01},
+        # {'params': model.classifier7.parameters(), 'lr': 0.01}
+    ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
 # Decay LR by a factor of 0.1 every 40 epochs
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=30, gamma=0.1)
+if opt.warmup and opt.adam:
+    # BT: [40, 70]
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+                                         warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
+elif opt.adam:
+    # BT: [40, 70]
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
+else:
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
+    # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
 
 ######################################################################
 # Train and evaluate
@@ -727,17 +765,22 @@ dir_name = os.path.join('./model', name)
 if not os.path.isdir(dir_name):
     os.mkdir(dir_name)
 # record every run
-copyfile('./train_gen.py', dir_name+'/train_gen.py')
-copyfile('./model.py', dir_name+'/model.py')
+copyfile('./train.py', dir_name + '/train.py')
+copyfile('./model.py', dir_name + '/model.py')
+
+writer = SummaryWriter(log_dir=dir_name, comment='')
 
 # save opts
-with open('%s/opts.json' % dir_name, 'w') as fp:
-    json.dump(vars(opt), fp, indent=1)
+with open('%s/opts.yaml' % dir_name, 'w') as fp:
+    yaml.dump(vars(opt), fp, default_flow_style=False)
+
+if use_gpu:
+    model = model.cuda()
 
 if fp16:
-    #model = network_to_half(model)
-    #optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
+    # model = network_to_half(model)
+    # optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
     model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
-model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
-                    num_epochs=100)
+model = train_model(model, criterions, optimizer_ft, exp_lr_scheduler, writer,
+                    num_epochs=opt.epoch)
