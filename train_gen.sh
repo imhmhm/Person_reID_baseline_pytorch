@@ -4,11 +4,15 @@
 
 # gen_train_7p_v4_x1 \
 
+# DukeMTMC-reID / Market
+
 python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/DukeMTMC-reID/pytorch \
+                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
                     --gen_name duke_train_7p_v4_v2_x1 \
                     --eps 0.4 \
-                    --name duke_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri_fp16_v2 --train_all --batchsize 128 \
+                    --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri_fp16_v2 \
+                    --train_all \
+                    --batchsize 128 \
                     --num_per_id 4 \
                     --prop_real 3 \
                     --prop_gen 1 \
@@ -24,10 +28,12 @@ python train_gen.py --gpu_ids 0 \
                     #--resume \
                     #--PCB \
 python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/DukeMTMC-reID/pytorch \
+                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
                     --gen_name duke_train_7p_v4_v2_x1 \
                     --eps 0.2 \
-                    --name duke_ResNet50_gen_e0.2_branch_7p_v4_b128_spl_3+1_tri_fp16_v2 --train_all --batchsize 128 \
+                    --name market_ResNet50_gen_e0.2_branch_7p_v4_b128_spl_3+1_tri_fp16_v2 \
+                    --train_all \
+                    --batchsize 128 \
                     --num_per_id 4 \
                     --prop_real 3 \
                     --prop_gen 1 \

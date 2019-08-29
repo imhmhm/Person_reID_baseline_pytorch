@@ -36,7 +36,9 @@ import torch.nn.functional as F
 from torch.backends import cudnn
 from tensorboardX import SummaryWriter
 
-from hard_mine_triplet_loss import TripletLoss
+from hard_mine_triplet_loss import TripletLoss_gen
+from hard_mine_triplet_loss_mixup_v1 import TripletLoss_Mixup
+
 # from hard_mine_multiple_loss import TripletLoss
 # from PIL import Image
 import matplotlib
@@ -541,7 +543,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
 
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
-                    
+
                     if opt.mixup and opt.triplet:
                         loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                         loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
@@ -552,7 +554,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels, flags)
                         loss_htri = criterions['tri'](features, labels, flags, epoch)
-                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        loss = opt.wt_xent * loss_xent + opt.wt_tri * loss_htri
                     else:
                         loss = criterions['xent'](outputs, labels, flags)
                 else:
@@ -695,14 +697,14 @@ print(model)
 
 criterions = {}
 if opt.lsr:
-    criterions['xent'] = LSR_loss(epsilon=0.1)
+    criterions['xent'] = LSR_loss(epsilon=opt.eps)
 else:
     criterions['xent'] = nn.CrossEntropyLoss()
 
 if opt.mixup:
     criterions['tri'] = TripletLoss_Mixup(margin=0.3)
 else:
-    criterions['tri'] = HardTripletLoss(margin=0.3)
+    criterions['tri'] = TripletLoss_Gen(margin=0.3)
 
 
 if opt.adam:

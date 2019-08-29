@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 # triplet loss for gen and real data
-class TripletLoss(nn.Module):
+class TripletLoss_Gen(nn.Module):
     """Triplet loss with hard positive/negative mining.
 
     Reference:
