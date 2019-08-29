@@ -5,39 +5,60 @@ from __future__ import print_function, division
 import argparse
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
-from torch.autograd import Variable
-import numpy as np
-import torchvision
+# import torch.optim as optim
+# from torch.optim import lr_scheduler
+# from torch.autograd import Variable
+from torch.backends import cudnn
+# import torchvision
 from torchvision import datasets, models, transforms
+
 import time
 import os
+import sys
+import numpy as np
 import scipy.io
-from model import ft_net, ft_net_feature, ft_net_dense, PCB, PCB_test, ft_next
+from model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_feature
 
 ######################################################################
 # Options
 # --------
-parser = argparse.ArgumentParser(description='Training')
+parser = argparse.ArgumentParser(description='Testing')
 parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir', default='/home/tianlab/hengheng/reid/Market/pytorch', type=str, help='dataset dir')
-parser.add_argument('--gen_query', default='/home/tianlab/hengheng/reid/Market/pytorch/gen_query', type=str, help='gen multi_query')
+parser.add_argument('--test_dir', default='/home/tianlab/hengheng/reid', type=str, help='dataset dir')
+parser.add_argument('--test_set', default='Market', type=str, help='test set name')
+parser.add_argument('--gen_query', default='gen_query', type=str, help='gen multi_query')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
+parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
-parser.add_argument('--triplet', action='store_true', help='use triplet')
+parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
-parser.add_argument('--use_resnext', action='store_true', help='use resnext50')
+
+# parser.add_argument('--use_resnext', action='store_true', help='use resnext50')
 
 opt = parser.parse_args()
+###########################
+#### load config ####
+config_path = os.path.join('./model', opt.name, 'opts.yaml')
+with open(config_path, 'r') as stream:
+    config = yaml.load(stream, Loader=yaml.FullLoader)
+opt.PCB = config['PCB']
+opt.use_dense = config['use_dense']
+opt.use_NAS = config['use_NAS']
+opt.stride = config['stride']
+if 'nclasses' in config:
+    opt.nclasses = config['nclasses']
+else:
+    opt.nclasses = 751
+############################
 
 str_ids = opt.gpu_ids.split(',')
-#which_epoch = opt.which_epoch
+# which_epoch = opt.which_epoch
 name = opt.name
 test_dir = opt.test_dir
+test_set = opt.test_set
 
 gpu_ids = []
 for str_id in str_ids:
@@ -48,6 +69,8 @@ for str_id in str_ids:
 # set gpu ids
 if len(gpu_ids) > 0:
     torch.cuda.set_device(gpu_ids[0])
+    cudnn.benchmark = True
+
 
 ######################################################################
 # Load Data
@@ -81,7 +104,8 @@ if opt.PCB:
     ])
 
 
-data_dir = test_dir
+# data_dir = test_dir
+data_dir = os.path.join(test_dir, test_set, 'pytorch')
 
 if opt.multi:
     image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query', opt.gen_query]}
@@ -140,14 +164,15 @@ def extract_feature(model, dataloaders):
             if(i == 1):
                 img = fliplr(img)
             input_img = Variable(img.cuda())
-            if opt.triplet:
-                outputs, _ = model(input_img)
-            elif opt.use_dense:
-                outputs, _ = model(input_img)
-            elif opt.use_resnext:
-                outputs, _ = model(input_img)
-            else:
-                outputs = model(input_img)
+            outputs = model(input_img)
+            # if opt.triplet:
+            #     outputs, _ = model(input_img)
+            # elif opt.use_dense:
+            #     outputs, _ = model(input_img)
+            # elif opt.use_resnext:
+            #     outputs, _ = model(input_img)
+            # else:
+            #     outputs = model(input_img)
             f = outputs.data.cpu()
             ff = ff+f
         # norm feature
@@ -192,37 +217,38 @@ gallery_cam, gallery_label, gallery_imid = get_id(gallery_path)
 query_cam, query_label, query_imid = get_id(query_path)
 
 if opt.multi:
-    mquery_path = image_datasets['multi-query'].imgs
+    mquery_path = image_datasets[opt.gen_query].imgs
     mquery_cam, mquery_label, mquery_imid = get_id(mquery_path)
+
 
 ######################################################################
 # Load Collected data Trained model
 print('-------test-----------')
 if opt.use_dense:
-    model_structure = ft_net_dense(751) # 751 702 767
-
-elif opt.use_resnext:
-    model_structure = ft_next(751)
-
-elif opt.triplet:
-    model_structure = ft_net_feature(751)
+    model_structure = ft_net_dense(opt.nclasses)
+elif opt.use_NAS:
+    model_structure = ft_net_NAS(opt.nclasses)
 else:
-    model_structure = ft_net(767)
+    model_structure = ft_net(opt.nclasses, stride=opt.stride)
 
 if opt.PCB:
-    model_structure = PCB(751)
+    model_structure = PCB(opt.nclasses)
 
 model = load_network(model_structure)
 
 # Remove the final fc layer and classifier layer
-if opt.PCB:
-    model = PCB_test(model)
+if not opt.PCB:
+    model.model.fc = nn.Sequential()
+    ##### feature after avgpool #####
+    # model.classifier = nn.Sequential()
+    ##### feature after BN #####
+    # model.classifier.add_block[0] = nn.Sequential()
+    # model.classifier.add_block[1] = nn.Sequential()
+    model.classifier.classifier = nn.Sequential()
+    # print(model.classifier)
+    # sys.exit()
 else:
-    if opt.triplet:
-        model = model
-    else:
-        model.model.fc = nn.Sequential()
-        model.classifier = nn.Sequential()
+    model = PCB_test(model)
 
 # Change to test mode
 model = model.eval()
@@ -237,9 +263,19 @@ with torch.no_grad():
         mquery_feature = extract_feature(model, dataloaders[opt.gen_query])
 
 # Save to Matlab for check
+feat_dir = os.path.join('./model', name, test_set)
+if not os.path.isdir(feat_dir):
+    os.makedirs(feat_dir)
+
+
 result = {'gallery_f': gallery_feature.numpy(), 'gallery_label': gallery_label, 'gallery_cam': gallery_cam, 'gallery_imid': gallery_imid,
           'query_f': query_feature.numpy(), 'query_label': query_label, 'query_cam': query_cam, 'query_imid': query_imid}
-scipy.io.savemat('pytorch_result.mat', result)
+
+feat_path = os.path.join('./model', name, test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+scipy.io.savemat(feat_path, result)
+
 if opt.multi:
     result = {'mquery_f': mquery_feature.numpy(), 'mquery_label': mquery_label, 'mquery_cam': mquery_cam, 'mquery_imid': mquery_imid}
-    scipy.io.savemat('multi_query.mat', result)
+
+    multi_path = os.path.join('./model', name, test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
+    scipy.io.savemat(multi_path, result)

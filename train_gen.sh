@@ -16,6 +16,7 @@ python train_gen.py --gpu_ids 0 \
                     --num_per_id 4 \
                     --prop_real 3 \
                     --prop_gen 1 \
+                    --wt_tri 1.0 \
                     --fp16 \
                     --triplet;
                     # --erasing_p 0.5
@@ -37,5 +38,6 @@ python train_gen.py --gpu_ids 0 \
                     --num_per_id 4 \
                     --prop_real 3 \
                     --prop_gen 1 \
+                    --wt_tri 1.0 \
                     --fp16 \
                     --triplet;
