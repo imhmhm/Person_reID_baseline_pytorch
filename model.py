@@ -4,6 +4,7 @@ from torch.nn import init
 from torchvision import models
 # from torch.autograd import Variable
 import pretrainedmodels
+import sys
 
 ######################################################################
 
@@ -86,6 +87,17 @@ class ft_net(nn.Module):
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         model_ft.fc = nn.Sequential()
         self.model = model_ft
+
+        ######################################
+        # # freeze layers
+        # fixed_names = []
+        # for name, module in self.model._modules.items():
+        #     if name == 'layer3':
+        #         break;
+        #     fixed_names.append(name)
+        #     for param in module.parameters():
+        #         param.requires_grad = False
+        ######################################
 
         # self.classifier = ClassBlock(2048, class_num, droprate)
 

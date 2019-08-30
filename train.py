@@ -520,8 +520,8 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                 if opt.mixup:
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
                     now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients
@@ -545,8 +545,8 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels)
                         loss_htri = criterions['tri'](features, labels)
-                        # loss = 1.0 * loss_xent + 1.0 * loss_htri
-                        loss = loss_htri
+                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        # loss = loss_htri
                     else:
                         loss = criterions['xent'](outputs, labels)
                 else:
@@ -684,8 +684,8 @@ else:
 if opt.mixup:
     criterions['tri'] = TripletLoss_Mixup(margin=opt.margin)
 else:
-    # criterions['tri'] = HardTripletLoss(margin=opt.margin)
-    criterions['tri'] = HardQuadLoss(margin=opt.margin)
+    criterions['tri'] = HardTripletLoss(margin=opt.margin)
+    # criterions['tri'] = HardQuadLoss(margin=opt.margin)
 
 
 if opt.adam:
@@ -731,7 +731,7 @@ if opt.warmup and opt.adam:
     exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
                                          warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
 elif opt.adam:
-    # BT: [40, 70]
+    # BT: [40, 70] / [40, 80]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
     exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
 else:
