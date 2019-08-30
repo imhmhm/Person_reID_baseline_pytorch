@@ -1,16 +1,16 @@
-# python train.py \
-# --name ft_ResNet50_b16x4_adam_vert_duke \
-# --data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
-# --train_all \
-# --batchsize 64 \
-# --droprate 0 \
-# --use_sampler \
-# --num_per_id 4 \
-# --stride 2 \
-# --epoch 120 \
-# --lr 0.00035 \
-# --mixup \
-# --adam;
+python train.py \
+--name ft_ResNet50_b16x4_adam_vert_duke \
+--data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
+--train_all \
+--batchsize 64 \
+--droprate 0 \
+--use_sampler \
+--num_per_id 4 \
+--stride 2 \
+--epoch 120 \
+--lr 0.00035 \
+--mixup \
+--adam;
 
 # # --margin 1.2 \
 # # --lsr \
