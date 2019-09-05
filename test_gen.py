@@ -17,6 +17,7 @@ import os
 import sys
 import numpy as np
 import scipy.io
+import yaml
 from model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_feature
 
 ######################################################################
@@ -41,7 +42,7 @@ parser.add_argument('--multi', action='store_true', help='use multiple query')
 opt = parser.parse_args()
 ###########################
 #### load config ####
-config_path = os.path.join('./model', opt.name, 'opts.yaml')
+config_path = os.path.join('./model_gen', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
     config = yaml.load(stream, Loader=yaml.FullLoader)
 opt.PCB = config['PCB']
@@ -127,7 +128,7 @@ use_gpu = torch.cuda.is_available()
 
 
 def load_network(network):
-    save_path = os.path.join('./model', name, 'net_%s.pth' % opt.which_epoch)
+    save_path = os.path.join('./model_gen', name, 'net_%s.pth' % opt.which_epoch)
     network.load_state_dict(torch.load(save_path))
     return network
 
@@ -163,7 +164,7 @@ def extract_feature(model, dataloaders):
         for i in range(2):
             if(i == 1):
                 img = fliplr(img)
-            input_img = Variable(img.cuda())
+            input_img = img.cuda()
             outputs = model(input_img)
             # if opt.triplet:
             #     outputs, _ = model(input_img)
@@ -263,7 +264,7 @@ with torch.no_grad():
         mquery_feature = extract_feature(model, dataloaders[opt.gen_query])
 
 # Save to Matlab for check
-feat_dir = os.path.join('./model', name, test_set)
+feat_dir = os.path.join('./model_gen', name, test_set)
 if not os.path.isdir(feat_dir):
     os.makedirs(feat_dir)
 
@@ -271,11 +272,11 @@ if not os.path.isdir(feat_dir):
 result = {'gallery_f': gallery_feature.numpy(), 'gallery_label': gallery_label, 'gallery_cam': gallery_cam, 'gallery_imid': gallery_imid,
           'query_f': query_feature.numpy(), 'query_label': query_label, 'query_cam': query_cam, 'query_imid': query_imid}
 
-feat_path = os.path.join('./model', name, test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
+feat_path = os.path.join('./model_gen', name, test_set, 'pytorch_result_{}.mat'.format(opt.which_epoch))
 scipy.io.savemat(feat_path, result)
 
 if opt.multi:
     result = {'mquery_f': mquery_feature.numpy(), 'mquery_label': mquery_label, 'mquery_cam': mquery_cam, 'mquery_imid': mquery_imid}
 
-    multi_path = os.path.join('./model', name, test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
+    multi_path = os.path.join('./model_gen', name, test_set, 'multi_query_{}.mat'.format(opt.which_epoch))
     scipy.io.savemat(multi_path, result)

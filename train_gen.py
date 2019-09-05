@@ -16,8 +16,8 @@ import copy
 import random
 ###############################################
 from random_erasing import RandomErasing
-from model import ft_net, ft_net_feature, ft_net_dense, PCB, ft_next
-from resnext import resnext50_32x4d_fc512 as resnext50
+from model import ft_net, ft_net_dense, PCB, ft_net_feature
+# from resnext import resnext50_32x4d_fc512 as resnext50
 ###############################################
 import torch
 import torch.nn as nn
@@ -36,7 +36,7 @@ import torch.nn.functional as F
 from torch.backends import cudnn
 from tensorboardX import SummaryWriter
 
-from hard_mine_triplet_loss import TripletLoss_gen
+from hard_mine_triplet_loss import TripletLoss_Gen
 from hard_mine_triplet_loss_mixup_v1 import TripletLoss_Mixup
 
 # from hard_mine_multiple_loss import TripletLoss
@@ -81,7 +81,8 @@ parser.add_argument('--epoch', default=120, type=int, help='epoch number')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
 
 parser.add_argument('--lsr', action='store_true', help='use label smoothing')
-parser.add_argument('--eps', default=0.4, type=float, help='label smoothing rate')
+parser.add_argument('--eps_gen', default=0.4, type=float, help='label smoothing rate for gen samples')
+parser.add_argument('--eps_real', default=0.0, type=float, help='label smoothing rate for real samples')
 
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
 parser.add_argument('--mixup', action='store_true', help='use mixup')
@@ -195,13 +196,14 @@ class genDataset(datasets.ImageFolder):
 
 class LSR_loss(nn.Module):
     # change target to range(0,750)
-    def __init__(self, epsilon):
+    def __init__(self, eps_gen, eps_real=0.0):
         super(LSR_loss, self).__init__()
-        self.epsilon = epsilon
+        self.eps_gen = eps_gen
+        self.eps_real = eps_real
 
     # input is the prediction score(torch Variable) 32*752, target is the corresponding label,
     def forward(self, input, target, flg):
-        # while flg means the flag(=0 for true data and 1 for generated data)  batchsize*1
+        # while flg means the flag( 0 for true data and 1 for generated data)  batchsize*1
         # print(type(input))
         # N defines the number of images, C defines channels,  K class in total
         assert(input.dim() <= 2)
@@ -218,7 +220,8 @@ class LSR_loss(nn.Module):
         maxRow = maxRow.unsqueeze(1)
         input = input - maxRow
 
-        epsilon = self.epsilon  # 0.4  # follow PT-GAN
+        eps_real = self.eps_real # 0.0 default # 0.1 for real
+        eps_gen = self.eps_gen  # 0.4  # follow PT-GAN
         # epsilon = 0.3
         # epsilon = 1.0 # LSRO
         target = target.view(-1, 1)       # batchsize, 1
@@ -232,7 +235,17 @@ class LSR_loss(nn.Module):
         logpt = logpt.view(-1)            # N*1 original loss
         flg = flg.view(-1)
         flg = flg.type(torch.cuda.FloatTensor)
-        loss = -1 * logpt * (1 - epsilon * flg) - flos * epsilon * flg
+
+        # ===================================================
+        # LSR 0.4 for gen samples and 0.0 for real samples
+        # ===================================================
+        # loss = -1 * logpt * (1 - epsilon * flg) - flos * epsilon * flg
+
+        # ===================================================
+        # LSR 0.4 for gen samples and 0.1 for real samples
+        # ===================================================
+        loss = -1 * logpt * (1 - (eps_gen * flg + eps_real * (1 - flg)))- flos * (eps_gen * flg + (eps_real * (1 - flg)))
+
         return loss.mean()
 
 ####################################################################
@@ -482,7 +495,7 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 # train
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=0):
+def train_model(model, criterion, optimizer, scheduler, writer, num_epochs=25):
 
     since = time.time()
 
@@ -493,6 +506,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
         start = re_epoch
     else:
         start = 0
+
+    count = 0
     for epoch in range(start, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
@@ -525,8 +540,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                     flags = flags.cuda().detach()
                     # print(labels, flags)
                     # sys.exit()
-                    # inputs = Variable(inputs.cuda())
-                    # labels = Variable(labels.cuda())
                 else:
                     inputs, labels, flags = inputs, labels, flags
                 if opt.mixup:
@@ -580,39 +593,45 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, re_epoch=
                     else:
                         loss.backward()
                     optimizer.step()
+                    count += 1
 
                 # statistics
                 # for the new version like 0.4.0, 0.5.0 and 1.0.0
                 if int(version[0]) > 0 or int(version[2]) > 3:
                     running_loss += loss.item() * now_batch_size
+                    writer.add_scalar('loss', loss.item(), count)
                     if opt.triplet:
+                        writer.add_scalar('xent_loss', loss_xent.item(), count)
+                        writer.add_scalar('tri_loss', loss_htri.item(), count)
+
                         running_loss_xent += loss_xent.item() * now_batch_size
                         running_loss_htri += loss_htri.item() * now_batch_size
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
-                running_corrects += float(torch.sum(preds == labels.data))
+                # running_corrects += float(torch.sum(preds == labels.data))
 
             epoch_loss = running_loss / dataset_sizes[phase]
             if opt.triplet:
                 epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
                 epoch_loss_tri = running_loss_htri / dataset_sizes[phase]
                 print('{} loss_xent: {:.4f} loss_tri: {:.4f}'.format(phase, epoch_loss_xent, epoch_loss_tri))
-            epoch_acc = running_corrects / dataset_sizes[phase]
+            # epoch_acc = running_corrects / dataset_sizes[phase]
+            epoch_acc = 1.0
 
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
+            print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
             y_loss[phase].append(epoch_loss)
             y_err[phase].append(1.0-epoch_acc)
             # deep copy the model
-            if phase == 'val':
-                last_model_wts = model.state_dict()
-                if epoch % 10 == 9:
-                    save_network(model, epoch)
-                draw_curve(epoch)
+            # if phase == 'val':
+            last_model_wts = model.state_dict()
+            if epoch % 10 == 9:
+                save_network(model, epoch)
+            draw_curve(epoch)
 
         print()
 
+    writer.close()
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
@@ -643,7 +662,7 @@ def draw_curve(current_epoch):
     if current_epoch == 0:
         ax0.legend()
         ax1.legend()
-    fig.savefig(os.path.join('./model', name, 'train.jpg'))
+    fig.savefig(os.path.join('./model_gen', name, 'train.jpg'))
 
 
 ######################################################################
@@ -651,7 +670,7 @@ def draw_curve(current_epoch):
 # ---------------------------
 def save_network(network, epoch_label):
     save_filename = 'net_%s.pth' % epoch_label
-    save_path = os.path.join('./model', name, save_filename)
+    save_path = os.path.join('./model_gen', name, save_filename)
     torch.save(network.cpu().state_dict(), save_path)
     if torch.cuda.is_available():
         network.cuda(gpu_ids[0])
@@ -662,7 +681,7 @@ def save_network(network, epoch_label):
 
 def load_network(network, resume):
     epoch = 119
-    save_path = os.path.join('./model', resume, 'net_{}.pth'.format(epoch))
+    save_path = os.path.join('./model_gen', resume, 'net_{}.pth'.format(epoch))
     network.load_state_dict(torch.load(save_path))
     return network, epoch
 
@@ -697,7 +716,7 @@ print(model)
 
 criterions = {}
 if opt.lsr:
-    criterions['xent'] = LSR_loss(epsilon=opt.eps)
+    criterions['xent'] = LSR_loss(eps_gen=opt.eps_gen, eps_real=opt.eps_real)
 else:
     criterions['xent'] = nn.CrossEntropyLoss()
 
@@ -763,9 +782,9 @@ else:
 #
 # It should take around 1-2 hours on GPU.
 #
-dir_name = os.path.join('./model', name)
+dir_name = os.path.join('./model_gen', name)
 if not os.path.isdir(dir_name):
-    os.mkdir(dir_name)
+    os.makedirs(dir_name)
 # record every run
 copyfile('./train.py', dir_name + '/train.py')
 copyfile('./model.py', dir_name + '/model.py')

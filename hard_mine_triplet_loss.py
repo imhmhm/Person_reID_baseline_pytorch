@@ -18,7 +18,7 @@ class TripletLoss_Gen(nn.Module):
     """
 
     def __init__(self, margin=0.3):
-        super(TripletLoss, self).__init__()
+        super(TripletLoss_Gen, self).__init__()
         self.margin = margin
         self.ranking_loss = nn.MarginRankingLoss(margin=margin)
 
@@ -42,7 +42,7 @@ class TripletLoss_Gen(nn.Module):
         for i in range(n):
             dist_ap.append(dist[i][mask[i]].max().unsqueeze(0))
             dist_an.append(dist[i][mask[i] == 0].min().unsqueeze(0))
-            if epoch == 99:
+            if epoch == 119:
                 max_idx = (dist[i] == (dist[i][mask[i]].max())).nonzero().squeeze()
                 min_idx = (dist[i] == (dist[i][mask[i] == 0].min())).nonzero().squeeze()
                 file = open('result.txt', 'a')
