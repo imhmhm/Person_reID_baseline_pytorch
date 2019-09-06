@@ -86,3 +86,19 @@ python train.py \
 --warmup \
 --wt_tri 0.1 \
 --triplet;
+
+python train.py \
+--name ft_ResNet50_b32x4_tri0.1_lsr_warmup \
+--data_dir /home/hmhm/reid/Market/pytorch \
+--train_all \
+--batchsize 128 \
+--droprate 0 \
+--use_sampler \
+--num_per_id 4 \
+--stride 2 \
+--epoch 120 \
+--lr 0.01 \
+--lsr \
+--warmup \
+--wt_tri 0.1 \
+--triplet;

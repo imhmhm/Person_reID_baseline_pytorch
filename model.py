@@ -143,12 +143,12 @@ class ft_net_feature(nn.Module):
         self.model = model_ft
 
         # self.classifier = ClassBlock(2048, class_num, droprate, relu=True)
-        ##### |--bn--|--Linear--| #####
-        # self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
-        #==========================
-        # feature after bn
-        self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False, return_f=True)
-        #==========================
+        ####################### |--bn--|--Linear--| #######################
+        self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+        # #==========================
+        # # feature after bn
+        # self.classifier = ClassBlock(2048, class_num, droprate, relu=False, linear=False, return_f=True)
+        # #==========================
         #######################
         # no shift(bias) in BN
         # self.classifier.add_block[0].bias.requires_grad_(False)
@@ -164,13 +164,13 @@ class ft_net_feature(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.model.avgpool(x)
-        # feature = x.view(x.size(0), -1)
-        # x = self.classifier(feature)
-        #==========================
-        # feature after bn
-        x = x.view(x.size(0), -1)
-        x, feature = self.classifier(x)
-        #==========================
+        feature = x.view(x.size(0), -1)
+        x = self.classifier(feature)
+        # #==========================
+        # # feature after bn
+        # x = x.view(x.size(0), -1)
+        # x, feature = self.classifier(x)
+        # #==========================
         return feature, x
 
 

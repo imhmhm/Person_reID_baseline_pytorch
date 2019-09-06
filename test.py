@@ -220,11 +220,11 @@ model = load_network(model_structure)
 if not opt.PCB:
     model.model.fc = nn.Sequential()
     ##### feature after avgpool #####
-    model.classifier = nn.Sequential()
+    # model.classifier = nn.Sequential()
     ##### feature after BN #####
     # model.classifier.add_block[0] = nn.Sequential()
     # model.classifier.add_block[1] = nn.Sequential()
-    # model.classifier.classifier = nn.Sequential()
+    model.classifier.classifier = nn.Sequential()
     # print(model.classifier)
     # sys.exit()
 else:
