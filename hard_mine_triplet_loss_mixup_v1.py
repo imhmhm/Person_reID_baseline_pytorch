@@ -50,7 +50,7 @@ class TripletLoss_Mixup(nn.Module):
             dist_same_a_and_b_hp.append(dist[i][mask_same_a_and_b[i]].max().unsqueeze(0))
             # dist_same_a_and_b_hp.append(dist[i][mask_same_a_and_b[i]].min().unsqueeze(0))
             dist_dif_a_and_b_hn.append(dist[i][mask_dif_a_and_b[i]].min().unsqueeze(0))
-            if mask_same_a_or_b[i].any() and epoch > 70:
+            if mask_same_a_or_b[i].any() and epoch > 50:
             # if mask_same_a_or_b[i].any():
                 dist_same_a_or_b_sp.append(dist[i][mask_same_a_or_b[i]].max().unsqueeze(0))
                 # dist_same_a_or_b_sp.append(dist[i][mask_same_a_or_b[i]].min().unsqueeze(0))

@@ -51,38 +51,7 @@ try:
 except ImportError: # will be 3.x series
     print('This is not an error. If you want to use low precision, i.e., fp16, please install the apex with cuda support (https://github.com/NVIDIA/apex) and update pytorch to 1.0')
 
-######################################################################
-# Options
-# --------
-parser = argparse.ArgumentParser(description='Training')
-parser.add_argument('--gpu_ids', default='0', type=str, help='gpu_ids: e.g. 0  0,1,2  0,2')
-parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
-parser.add_argument('--data_dir', default='/home/hmhm/reid/Market/pytorch', type=str,
-                    help='training dir path')
-parser.add_argument('--train_all', action='store_true', help='use all training data')
-
-parser.add_argument('--color_jitter', action='store_true', help='use color jitter in training')
-parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-parser.add_argument('--stride', default=2, type=int, help='stride')
-parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
-
-parser.add_argument('--use_dense', action='store_true', help='use densenet121')
-parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
-
-parser.add_argument('--adam', action='store_true', help='use adam optimizer')
-parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
-parser.add_argument('--lr', default=0.00035, type=float, help='learning rate')
-parser.add_argument('--epoch', default=120, type=int, help='epoch number')
-parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
-parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
-parser.add_argument('--mixup', action='store_true', help='use mixup')
-parser.add_argument('--lsr', action='store_true', help='use label smoothing')
-parser.add_argument('--triplet', action='store_true', help='use triplet loss')
-parser.add_argument('--margin', default=0.3, type=float, help='metric loss margin')
-parser.add_argument('--use_sampler', action='store_true', help='use batch sampler')
-parser.add_argument('--num_per_id', default=4, type=int, help='number of images per id in a batch')
-parser.add_argument('--fp16', action='store_true', help='use float16 instead of float32, which will save about 50% memory' )
-opt = parser.parse_args()
+from opt import opt
 
 fp16 = opt.fp16
 data_dir = opt.data_dir
@@ -400,8 +369,8 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                 if opt.mixup:
                     # inputs, targets_a, targets_b, lam = mixup_data(inputs, labels, alpha=0.2, use_cuda=use_gpu)
                     # inputs, targets_a, targets_b, lam = mixup_data_metric(inputs, labels, alpha=0.2, use_cuda=use_gpu)
-                    inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
-                    # inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    # inputs, targets_a, targets_b, lam = stitch_data(inputs, labels, alpha=3.0, use_cuda=use_gpu)
+                    inputs, targets_a, targets_b, lam = stitch_data_metric(inputs, labels, alpha=3.0, use_cuda=use_gpu)
                     now_batch_size = inputs.shape[0]
 
                 # zero the parameter gradients
@@ -425,7 +394,7 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     elif opt.triplet:
                         loss_xent = criterions['xent'](outputs, labels)
                         loss_htri = criterions['tri'](features, labels)
-                        loss = 1.0 * loss_xent + 1.0 * loss_htri
+                        loss = opt.wt_xent * loss_xent + opt.wt_tri * loss_htri
                         # loss = loss_htri
                     else:
                         loss = criterions['xent'](outputs, labels)
@@ -614,6 +583,11 @@ elif opt.adam:
     # BT: [40, 70] / [40, 80]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
     exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
+
+elif opt.warmup:
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+                                         warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
+
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)

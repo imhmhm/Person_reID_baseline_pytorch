@@ -1,3 +1,7 @@
+import numpy as np
+import torch
+from opt import opt
+
 ########################################################################
 # mixed data augmentation methods
 ########################################################################
