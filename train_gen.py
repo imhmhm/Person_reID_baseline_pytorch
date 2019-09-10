@@ -239,12 +239,12 @@ class LSR_loss(nn.Module):
         # ===================================================
         # LSR 0.4 for gen samples and 0.0 for real samples
         # ===================================================
-        # loss = -1 * logpt * (1 - epsilon * flg) - flos * epsilon * flg
+        loss = -1 * logpt * (1 - eps_gen * flg) - flos * eps_gen * flg
 
         # ===================================================
         # LSR 0.4 for gen samples and 0.1 for real samples
         # ===================================================
-        loss = -1 * logpt * (1 - (eps_gen * flg + eps_real * (1 - flg)))- flos * (eps_gen * flg + (eps_real * (1 - flg)))
+        # loss = -1 * logpt * (1 - (eps_gen * flg + eps_real * (1 - flg)))- flos * (eps_gen * flg + (eps_real * (1 - flg)))
 
         return loss.mean()
 
@@ -772,6 +772,11 @@ elif opt.adam:
     # BT: [40, 70]
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=20, gamma=0.1)
     exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)
+
+elif opt.warmup:
+    exp_lr_scheduler = WarmupMultiStepLR(optimizer_ft, milestones=[40, 70], gamma=0.1,
+                                         warmup_factor=0.01, warmup_iters=10, warmup_method='linear')
+
 else:
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
     # exp_lr_scheduler = lr_scheduler.MultiStepLR(optimizer_ft, milestones=[40, 80], gamma=0.1)

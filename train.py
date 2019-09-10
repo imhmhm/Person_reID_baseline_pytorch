@@ -581,7 +581,7 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
             running_corrects = 0.0
             running_loss_xent = 0.0
             running_loss_htri = 0.0
-            # count = 0
+
             # Iterate over data.
             for data in tqdm(dataloaders[phase]):
 

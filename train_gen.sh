@@ -6,98 +6,246 @@
 
 # DukeMTMC-reID / Market
 
-python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --gen_name 1501_train_7p_v4_x1 \
-                    --lsr \
-                    --eps_gen 0.4 \
-                    --eps_real 0.0 \
-                    --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.5_SGD \
-                    --train_all \
-                    --batchsize 128 \
-                    --num_per_id 4 \
-                    --prop_real 3 \
-                    --prop_gen 1 \
-                    --wt_tri 0.5 \
-                    --lr 0.01 \
-                    --triplet;
-                    # --adam \
-                    # --fp16 \
-                    # --erasing_p 0.5 \
-                    # --use_dense \
-                    # --PCB \
-                    # --use_resnext \
-                    #--mixup \
-                    #--resume \
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--lr 0.01;
 
-python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --gen_name 1501_train_7p_v4_x1 \
-                    --lsr \
-                    --eps_gen 0.4 \
-                    --eps_real 0.0 \
-                    --name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.5_SGD \
-                    --train_all \
-                    --batchsize 64 \
-                    --num_per_id 4 \
-                    --prop_real 3 \
-                    --prop_gen 1 \
-                    --wt_tri 0.5 \
-                    --lr 0.01 \
-                    --triplet;
-                    # --adam \
+# --wt_tri 0.01 \
+# --triplet;
+# --adam \
+# --fp16 \
+# --erasing_p 0.5 \
+# --use_dense \
+# --PCB \
+# --use_resnext \
+#--mixup \
+#--resume \
 
-
-python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --gen_name 1501_train_7p_v4_x1 \
-                    --lsr \
-                    --eps_gen 0.4 \
-                    --eps_real 0.1 \
-                    --name market_ResNet50_gen_e0.4_0.1_branch_7p_v4_b64_spl_3+1_tri0.5_SGD \
-                    --train_all \
-                    --batchsize 64 \
-                    --num_per_id 4 \
-                    --prop_real 3 \
-                    --prop_gen 1 \
-                    --wt_tri 0.5 \
-                    --lr 0.01 \
-                    --triplet;
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.1 \
+--lr 0.01 \
+--triplet;
+# --adam \
 
 
-python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --gen_name 1501_train_7p_v4_x1 \
-                    --lsr \
-                    --eps_gen 0.4 \
-                    --eps_real 0.0 \
-                    --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri1.0_SGD \
-                    --train_all \
-                    --batchsize 128 \
-                    --num_per_id 4 \
-                    --prop_real 3 \
-                    --prop_gen 1 \
-                    --wt_tri 1.0 \
-                    --lr 0.01 \
-                    --triplet;
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.2_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.2 \
+--lr 0.01 \
+--triplet;
 
-python train_gen.py --gpu_ids 0 \
-                    --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
-                    --gen_name 1501_train_7p_v4_x1 \
-                    --lsr \
-                    --eps_gen 0.4 \
-                    --eps_real 0.0 \
-                    --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.1_SGD \
-                    --train_all \
-                    --batchsize 128 \
-                    --num_per_id 4 \
-                    --prop_real 3 \
-                    --prop_gen 1 \
-                    --wt_tri 0.1 \
-                    --lr 0.01 \
-                    --triplet;
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.3_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.3 \
+--lr 0.01 \
+--triplet;
+
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.4_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.4 \
+--lr 0.01 \
+--triplet;
+
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.5_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.5 \
+--lr 0.01 \
+--triplet;
+
+python train_gen.py \
+--gpu_ids 0 \
+--data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
+--lsr \
+--eps_gen 0.4 \
+--eps_real 0.0 \
+--name market_ResNet50_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.05_stride1_SGD \
+--train_all \
+--batchsize 64 \
+--num_per_id 4 \
+--prop_real 3 \
+--prop_gen 1 \
+--stride 1 \
+--wt_tri 0.05 \
+--lr 0.01 \
+--triplet;
+
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b16x4_spl_6+2_tri0.15_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 8 \
+#                     --prop_real 6 \
+#                     --prop_gen 2 \
+#                     --wt_tri 0.15 \
+#                     --lr 0.01 \
+#                     --triplet;
+#
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.9_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 4 \
+#                     --prop_real 3 \
+#                     --prop_gen 1 \
+#                     --wt_tri 0.9 \
+#                     --lr 0.01 \
+#                     --triplet;
+#
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.05_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 4 \
+#                     --prop_real 3 \
+#                     --prop_gen 1 \
+#                     --wt_tri 0.05 \
+#                     --lr 0.01 \
+#                     --triplet;
+#
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.3_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 4 \
+#                     --prop_real 3 \
+#                     --prop_gen 1 \
+#                     --wt_tri 0.3 \
+#                     --lr 0.01 \
+#                     --triplet;
+#
+#
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.15_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 4 \
+#                     --prop_real 3 \
+#                     --prop_gen 1 \
+#                     --wt_tri 0.15 \
+#                     --lr 0.01 \
+#                     --triplet;
+
+# python train_gen.py --gpu_ids 0 \
+#                     --data_dir /home/tianlab/hengheng/reid/Market/pytorch \
+#                     --gen_name 1501_train_7p_v4_x1 \
+#                     --lsr \
+#                     --eps_gen 0.4 \
+#                     --eps_real 0.0 \
+#                     --name market_ResNet50_gen_e0.4_branch_7p_v4_b128_spl_3+1_tri0.1_warmup_SGD \
+#                     --train_all \
+#                     --batchsize 128 \
+#                     --num_per_id 4 \
+#                     --prop_real 3 \
+#                     --prop_gen 1 \
+#                     --wt_tri 0.1 \
+#                     --lr 0.01 \
+#                     --warmup \
+#                     --triplet;
 
 #=============
 # test
 #=============
-bash test_gen.sh
+# bash test_gen.sh;
+
+# bash evaluate_gen.sh;
+
+# bash train_gen_v1.sh;
