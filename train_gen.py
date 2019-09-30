@@ -552,7 +552,7 @@ def train_model(model, criterion, optimizer, scheduler, writer, num_epochs=25):
                 if opt.triplet:
                     features, outputs = model(inputs)
                 else:
-                    outputs = model(inputs)
+                    _, outputs = model(inputs)
 
                 if not opt.PCB:
                     _, preds = torch.max(outputs.data, 1)
@@ -698,10 +698,10 @@ if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
 elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
-elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
-    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+# elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
+#     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 else:
-    model = ft_net(len(class_names), opt.droprate, opt.stride)
+    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))
@@ -791,10 +791,10 @@ dir_name = os.path.join('./model_gen', name)
 if not os.path.isdir(dir_name):
     os.makedirs(dir_name)
 # record every run
-copyfile('./train.py', dir_name + '/train.py')
+copyfile('./train_gen.py', dir_name + '/train_gen.py')
 copyfile('./model.py', dir_name + '/model.py')
 
-writer = SummaryWriter(log_dir=dir_name, comment='')
+writer = SummaryWriter(logdir=dir_name, comment='')
 
 # save opts
 with open('%s/opts.yaml' % dir_name, 'w') as fp:

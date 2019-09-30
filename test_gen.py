@@ -165,15 +165,7 @@ def extract_feature(model, dataloaders):
             if(i == 1):
                 img = fliplr(img)
             input_img = img.cuda()
-            outputs = model(input_img)
-            # if opt.triplet:
-            #     outputs, _ = model(input_img)
-            # elif opt.use_dense:
-            #     outputs, _ = model(input_img)
-            # elif opt.use_resnext:
-            #     outputs, _ = model(input_img)
-            # else:
-            #     outputs = model(input_img)
+            _, outputs = model(input_img)
             f = outputs.data.cpu()
             ff = ff+f
         # norm feature
@@ -230,7 +222,7 @@ if opt.use_dense:
 elif opt.use_NAS:
     model_structure = ft_net_NAS(opt.nclasses)
 else:
-    model_structure = ft_net(opt.nclasses, stride=opt.stride)
+    model_structure = ft_net_feature(opt.nclasses, stride=opt.stride)
 
 if opt.PCB:
     model_structure = PCB(opt.nclasses)
