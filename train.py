@@ -380,7 +380,7 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                 if opt.triplet:
                     features, outputs = model(inputs)
                 else:
-                    outputs = model(inputs)
+                    _, outputs = model(inputs)
                 if not opt.PCB:
                     _, preds = torch.max(outputs, 1)
 
@@ -511,10 +511,10 @@ if opt.use_dense:
     model = ft_net_dense(len(class_names), opt.droprate)
 elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
-elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
-    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+# elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
+#     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 else:
-    model = ft_net(len(class_names), opt.droprate, opt.stride)
+    model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 
 if opt.PCB:
     model = PCB(len(class_names))

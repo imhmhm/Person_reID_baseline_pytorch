@@ -134,6 +134,7 @@ class ft_net_feature(nn.Module):
     def __init__(self, class_num, droprate=0.0, stride=2):
         super(ft_net_feature, self).__init__()
         model_ft = models.resnet50(pretrained=True)
+        # model_ft = models.resnet101(pretrained=True)
         if stride == 1:
             model_ft.layer4[0].downsample[0].stride = (1, 1)
             model_ft.layer4[0].conv2.stride = (1, 1)
@@ -173,33 +174,33 @@ class ft_net_feature(nn.Module):
         # #==========================
         return feature, x
 
-
-class ft_net_sub(nn.Module):
-
-    def __init__(self, class_num, droprate=0.0):
-        super(ft_net_sub, self).__init__()
-        model_ft = models.resnet50(pretrained=True)
-        # avg pooling to global pooling
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.model = model_ft
-        # self.classifier = ClassBlock(2048, class_num, droprate)
-        self.classifier_reid = ClassBlock(2048, class_num, droprate, relu=True)
-        self.classifier_gen = ClassBlock(2048, 2, droprate, relu=True)
-
-    def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        x = self.model.layer4(x)
-        x = self.model.avgpool(x)
-        x = x.view(x.size(0), -1)
-        id = self.classifier_reid(x)
-        gen = self.classifier_gen(x)
-        return id, gen
+#
+# class ft_net_sub(nn.Module):
+#
+#     def __init__(self, class_num, droprate=0.0):
+#         super(ft_net_sub, self).__init__()
+#         model_ft = models.resnet50(pretrained=True)
+#         # avg pooling to global pooling
+#         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+#         self.model = model_ft
+#         # self.classifier = ClassBlock(2048, class_num, droprate)
+#         self.classifier_reid = ClassBlock(2048, class_num, droprate, relu=True)
+#         self.classifier_gen = ClassBlock(2048, 2, droprate, relu=True)
+#
+#     def forward(self, x):
+#         x = self.model.conv1(x)
+#         x = self.model.bn1(x)
+#         x = self.model.relu(x)
+#         x = self.model.maxpool(x)
+#         x = self.model.layer1(x)
+#         x = self.model.layer2(x)
+#         x = self.model.layer3(x)
+#         x = self.model.layer4(x)
+#         x = self.model.avgpool(x)
+#         x = x.view(x.size(0), -1)
+#         id = self.classifier_reid(x)
+#         gen = self.classifier_gen(x)
+#         return id, gen
 
 # Define the DenseNet121-based Model
 
@@ -213,13 +214,15 @@ class ft_net_dense(nn.Module):
         model_ft.fc = nn.Sequential()
         self.model = model_ft
         # For DenseNet, the feature dim is 1024
-        self.classifier = ClassBlock(1024, class_num, droprate, relu=True)
+        # self.classifier = ClassBlock(1024, class_num, droprate, relu=True)
+        ####################### |--bn--|--Linear--| #######################
+        self.classifier = ClassBlock(1024, class_num, droprate, relu=False, linear=False)
 
     def forward(self, x):
         x = self.model.features(x)
-        x = x.view(x.size(0), x.size(1))
-        x = self.classifier(x)
-        return x
+        feature = x.view(x.size(0), x.size(1))
+        x = self.classifier(feature)
+        return feature, x
 
 
 class ft_net_NAS(nn.Module):
