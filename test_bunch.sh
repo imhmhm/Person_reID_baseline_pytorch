@@ -36,4 +36,4 @@ python test_bunch.py \
 
 #========================
 #========================
-# bash evaluate_bunch.sh;
+bash evaluate_bunch.sh;

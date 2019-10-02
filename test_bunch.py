@@ -186,46 +186,48 @@ def get_id(img_path, test_set):
 #data_dir = test_dir
 for test_set in test_sets:
 
-    data_dir = os.path.join(test_dir, test_set, 'pytorch')
-
-    if opt.multi:
-        image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query', 'multi-query']}
-        dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
-                                                      shuffle=False, num_workers=16) for x in ['gallery', 'query', 'multi-query']}
-    else:
-        image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query']}
-        dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
-                                                      shuffle=False, num_workers=16) for x in ['gallery', 'query']}
-
-    image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train_all'), data_transforms)
-    class_names = image_datasets['query'].classes
-    train_class_names = image_datasets['train'].classes
-    use_gpu = torch.cuda.is_available()
-
-    gallery_path = image_datasets['gallery'].imgs
-    query_path = image_datasets['query'].imgs
-
-    gallery_cam, gallery_label = get_id(gallery_path, test_set)
-    query_cam, query_label = get_id(query_path, test_set)
-
-    if opt.multi:
-        mquery_path = image_datasets['multi-query'].imgs
-        mquery_cam, mquery_label = get_id(mquery_path, test_set)
-
-    ######################################################################
-    # Load Collected data Trained model
-    print('-------test-----------')
-    if opt.use_dense:
-        model_structure = ft_net_dense(opt.nclasses)
-    elif opt.use_NAS:
-        model_structure = ft_net_NAS(opt.nclasses)
-    else:
-        model_structure = ft_net_feature(opt.nclasses, stride=opt.stride)
-
-    if opt.PCB:
-        model_structure = PCB(opt.nclasses)
-
     for which_epoch in which_epochs:
+
+        data_dir = os.path.join(test_dir, test_set, 'pytorch')
+
+        if opt.multi:
+            image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query', 'multi-query']}
+            dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
+                                                          shuffle=False, num_workers=16) for x in ['gallery', 'query', 'multi-query']}
+        else:
+            image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms) for x in ['gallery', 'query']}
+            dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=opt.batchsize,
+                                                          shuffle=False, num_workers=16) for x in ['gallery', 'query']}
+
+        image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train_all'), data_transforms)
+        class_names = image_datasets['query'].classes
+        train_class_names = image_datasets['train'].classes
+        use_gpu = torch.cuda.is_available()
+
+        gallery_path = image_datasets['gallery'].imgs
+        query_path = image_datasets['query'].imgs
+
+        gallery_cam, gallery_label = get_id(gallery_path, test_set)
+        query_cam, query_label = get_id(query_path, test_set)
+
+        if opt.multi:
+            mquery_path = image_datasets['multi-query'].imgs
+            mquery_cam, mquery_label = get_id(mquery_path, test_set)
+
+        ######################################################################
+        # Load Collected data Trained model
+        print('-------test-----------')
+        if opt.use_dense:
+            model_structure = ft_net_dense(opt.nclasses)
+        elif opt.use_NAS:
+            model_structure = ft_net_NAS(opt.nclasses)
+        else:
+            model_structure = ft_net_feature(opt.nclasses, stride=opt.stride)
+
+        if opt.PCB:
+            model_structure = PCB(opt.nclasses)
+
+
         model = load_network(model_structure, which_epoch)
 
         # Remove the final fc layer and classifier layer
