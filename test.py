@@ -89,6 +89,7 @@ data_transforms = transforms.Compose([
 
 if opt.PCB:
     data_transforms = transforms.Compose([
+        ## (384, 192) or (384, 128)
         transforms.Resize((384, 192), interpolation=3),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])

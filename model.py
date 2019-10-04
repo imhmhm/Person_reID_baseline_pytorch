@@ -281,21 +281,27 @@ class ft_net_middle(nn.Module):
 
 
 class PCB(nn.Module):
-    def __init__(self, class_num):
+    def __init__(self, class_num, part=6, droprate=0.0):
         super(PCB, self).__init__()
 
-        self.part = 6  # We cut the pool5 to 6 parts
+        self.part = part  # We cut the pool5 to 6 parts
         model_ft = models.resnet50(pretrained=True)
         self.model = model_ft
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        self.dropout = nn.Dropout(p=0.5)
+
+        # # no dropout
+        # self.dropout = nn.Dropout(p=0.5)
+
         # remove the final downsample
         self.model.layer4[0].downsample[0].stride = (1, 1)
         self.model.layer4[0].conv2.stride = (1, 1)
         # define 6 classifiers
         for i in range(self.part):
             name = 'classifier'+str(i)
-            setattr(self, name, ClassBlock(2048, class_num, droprate=0.5, relu=True, bnorm=True, num_bottleneck=256))
+            # setattr(self, name, ClassBlock(2048, class_num, droprate=0.5, relu=True, bnorm=True, num_bottleneck=256))
+
+            ####################### |--bn--|--Linear--| #######################
+            setattr(self, name, ClassBlock(2048, class_num, droprate, relu=False, linear=False))
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -308,7 +314,10 @@ class PCB(nn.Module):
         x = self.model.layer3(x)
         x = self.model.layer4(x)
         x = self.avgpool(x)
-        x = self.dropout(x)
+
+        ## no dropout
+        # x = self.dropout(x)
+
         part = {}
         predict = {}
         # get six part feature batchsize*2048*6
@@ -318,7 +327,7 @@ class PCB(nn.Module):
             c = getattr(self, name)
             predict[i] = c(part[i])
 
-        # sum prediction
+        ## sum prediction
         # y = predict[0]
         # for i in range(self.part-1):
         #     y += predict[i+1]
@@ -329,9 +338,20 @@ class PCB(nn.Module):
 
 
 class PCB_test(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, part=6):
         super(PCB_test, self).__init__()
-        self.part = 6
+        self.part = part
+
+        ##===================================================
+        ## feature after BN
+        # for i in range(self.part):
+        #
+        #     name = 'classifier'+str(i)
+        #     c = getattr(model, name)
+        #     c.classifier = nn.Sequential()
+        # self.model = model
+        ##===================================================
+
         self.model = model.model
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
         # remove the final downsample
@@ -350,7 +370,14 @@ class PCB_test(nn.Module):
         x = self.model.layer4(x)
         x = self.avgpool(x)
         y = x.view(x.size(0), x.size(1), x.size(2))
-        return y
+
+        ##===================================================
+        ## feature after BN
+        # features = x.model(x)
+        # y = torch.stack(features, -1)
+        ##===================================================
+
+        return _, y
 
 
 # debug model structure

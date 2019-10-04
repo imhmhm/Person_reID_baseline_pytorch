@@ -129,7 +129,10 @@ transform_val_list = [
 
 if opt.PCB:
     transform_train_list = [
+        ## (384, 192) or (384, 128)
         transforms.Resize((384, 192), interpolation=3),
+        # transforms.Pad(10),
+        # transforms.RandomCrop((384, 192)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -150,7 +153,7 @@ if opt.color_jitter:
 print(transform_train_list)
 data_transforms = {
     'train': transforms.Compose(transform_train_list),
-    'val': transforms.Compose(transform_val_list),
+    # 'val': transforms.Compose(transform_val_list),
 }
 
 train_all = ''
@@ -278,9 +281,6 @@ class GenSampler(Sampler):
 image_datasets = {}
 image_datasets['train'] = datasets.ImageFolder(os.path.join(data_dir, 'train' + train_all),
                                                data_transforms['train'])
-image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
-                                             data_transforms['val'])
-
 dataloaders = dict()
 
 if opt.use_sampler:
@@ -291,10 +291,14 @@ else:
     dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=opt.batchsize, shuffle=True,
                                                        num_workers=8, drop_last=True)
 
-dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
-                                                 drop_last=True)
+## val dataset and dataloader
+# image_datasets['val'] = datasets.ImageFolder(os.path.join(data_dir, 'val'),
+#                                              data_transforms['val'])
+# dataloaders['val'] = torch.utils.data.DataLoader(image_datasets['val'], batch_size=16, shuffle=True, num_workers=8,
+#                                                  drop_last=True)
+# dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+dataset_sizes = {x: len(image_datasets[x]) for x in ['train']}
 
 class_names = image_datasets['train'].classes
 cls2idx = image_datasets['train'].class_to_idx
@@ -377,18 +381,19 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                 optimizer.zero_grad()
 
                 # forward
-                if opt.triplet:
-                    features, outputs = model(inputs)
-                else:
-                    _, outputs = model(inputs)
                 if not opt.PCB:
+                    if opt.triplet:
+                        features, outputs = model(inputs)
+                    else:
+                        _, outputs = model(inputs)
+
                     _, preds = torch.max(outputs, 1)
 
                     if opt.mixup and opt.triplet:
                         loss_xent = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                         loss_htri = criterions['tri'](features, targets_a, targets_b, lam, epoch)
-                        # loss = 1.0 * loss_xent + 1.0 * loss_htri
-                        loss = loss_htri
+                        loss = opt.wt_xent * loss_xent + opt.wt_tri * loss_htri
+                        # loss = loss_htri
                     elif opt.mixup:
                         loss = mixup_criterion(criterions['xent'], outputs, targets_a, targets_b, lam)
                     elif opt.triplet:
@@ -399,18 +404,19 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     else:
                         loss = criterions['xent'](outputs, labels)
                 else:
-                    part = {}
-                    sm = nn.Softmax(dim=1)
-                    num_part = 6
-                    for i in range(num_part):
-                        part[i] = outputs[i]
+                    outputs = model(inputs)
+                    # part = {}
+                    # sm = nn.Softmax(dim=1)
+                    # num_part = 6
+                    # for i in range(num_part):
+                    #     part[i] = outputs[i]
+                    #
+                    # score = sm(part[0]) + sm(part[1]) + sm(part[2]) + sm(part[3]) + sm(part[4]) + sm(part[5])
+                    # _, preds = torch.max(score, 1)
 
-                    score = sm(part[0]) + sm(part[1]) + sm(part[2]) + sm(part[3]) + sm(part[4]) + sm(part[5])
-                    _, preds = torch.max(score, 1)
-
-                    loss = criterions['xent'](part[0], labels)
+                    loss = criterions['xent'](outputs[0], labels)
                     for i in range(num_part - 1):
-                        loss += criterions['xent'](part[i + 1], labels)
+                        loss += criterions['xent'](outputs[i + 1], labels)
 
                 # backward + optimize only if in training phase
                 if phase == 'train':
@@ -541,6 +547,7 @@ if opt.adam:
     # BT: 0.00035
     optimizer_ft = optim.Adam(model.parameters(), opt.lr, weight_decay=5e-4)
 elif not opt.PCB:
+    ## regular SGD
     ignored_params = list(map(id, model.model.fc.parameters())) + list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
@@ -550,6 +557,7 @@ elif not opt.PCB:
         {'params': model.classifier.parameters(), 'lr': opt.lr}
     ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
+    ## PCB SGD
     ignored_params = list(map(id, model.model.fc.parameters()))
     ignored_params += (list(map(id, model.classifier0.parameters()))
                        + list(map(id, model.classifier1.parameters()))
@@ -562,7 +570,8 @@ else:
                        )
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
-        {'params': base_params, 'lr': 0.1 * opt.lr},
+        # {'params': base_params, 'lr': 0.1 * opt.lr},
+        {'params': base_params, 'lr': opt.lr},
         {'params': model.model.fc.parameters(), 'lr': opt.lr},
         {'params': model.classifier0.parameters(), 'lr': opt.lr},
         {'params': model.classifier1.parameters(), 'lr': opt.lr},
