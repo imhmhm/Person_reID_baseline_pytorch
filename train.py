@@ -405,9 +405,9 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                         loss = criterions['xent'](outputs, labels)
                 else:
                     outputs = model(inputs)
+                    num_part = 6
                     # part = {}
                     # sm = nn.Softmax(dim=1)
-                    # num_part = 6
                     # for i in range(num_part):
                     #     part[i] = outputs[i]
                     #
