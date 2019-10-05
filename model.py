@@ -344,40 +344,41 @@ class PCB_test(nn.Module):
 
         ##===================================================
         ## feature after BN
-        # for i in range(self.part):
-        #
-        #     name = 'classifier'+str(i)
-        #     c = getattr(model, name)
-        #     c.classifier = nn.Sequential()
-        # self.model = model
+        for i in range(self.part):
+
+            name = 'classifier'+str(i)
+            c = getattr(model, name)
+            c.classifier = nn.Sequential()
+        self.model = model
         ##===================================================
 
-        self.model = model.model
-        self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        # remove the final downsample
-        self.model.layer4[0].downsample[0].stride = (1, 1)
-        self.model.layer4[0].conv2.stride = (1, 1)
+        # self.model = model.model
+        # self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
+        # # remove the final downsample
+        # self.model.layer4[0].downsample[0].stride = (1, 1)
+        # self.model.layer4[0].conv2.stride = (1, 1)
 
     def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        x = self.model.layer4(x)
-        x = self.avgpool(x)
-        y = x.view(x.size(0), x.size(1), x.size(2))
+        # x = self.model.conv1(x)
+        # x = self.model.bn1(x)
+        # x = self.model.relu(x)
+        # x = self.model.maxpool(x)
+        #
+        # x = self.model.layer1(x)
+        # x = self.model.layer2(x)
+        # x = self.model.layer3(x)
+        # x = self.model.layer4(x)
+        # x = self.avgpool(x)
+        # y = x.view(x.size(0), x.size(1), x.size(2))
 
         ##===================================================
-        ## feature after BN
-        # features = x.model(x)
-        # y = torch.stack(features, -1)
+        # feature after BN
+        features = self.model(x)
+        y = torch.stack(features, -1)
         ##===================================================
 
-        return _, y
+        ## in consistent with ft_net_feature
+        return None, y
 
 
 # debug model structure
