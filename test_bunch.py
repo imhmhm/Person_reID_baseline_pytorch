@@ -32,10 +32,11 @@ parser.add_argument('--which_epochs', default='last', type=str, nargs='+', help=
 # 59, 99, 119
 
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
-parser.add_argument('--batchsize', default=64, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
+parser.add_argument('--PCB_parts', default=6, type=int, help='number of parts in PCB')
 parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--multi', action='store_true', help='use multiple query')
 
@@ -46,6 +47,7 @@ config_path = os.path.join('./model', opt.name, 'opts.yaml')
 with open(config_path, 'r') as stream:
     config = yaml.load(stream, Loader=yaml.FullLoader)
 opt.PCB = config['PCB']
+opt.PCB_parts = config['PCB_parts']
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
 opt.stride = config['stride']
@@ -137,7 +139,7 @@ def extract_feature(model, dataloaders):
         else:
             ff = torch.FloatTensor(n, 2048).zero_()  # 2048 / 512
         if opt.PCB:
-            ff = torch.FloatTensor(n, 2048, 6).zero_()  # we have six parts
+            ff = torch.FloatTensor(n, 2048, opt.PCB_parts).zero_()  # we have six parts
         for i in range(2):
             if(i == 1):
                 img = fliplr(img)
@@ -145,12 +147,12 @@ def extract_feature(model, dataloaders):
             _, outputs = model(input_img)
             f = outputs.cpu().float()
             ff = ff+f
-        # norm feature
+        ## norm feature
         if opt.PCB:
-            # feature size (n,2048,6)
-            # 1. To treat every part equally, I calculate the norm for every 2048-dim part feature.
-            # 2. To keep the cosine score==1, sqrt(6) is added to norm the whole feature (2048*6).
-            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(6)
+            ## feature size (n,2048,6)
+            ## 1. To treat every part equally, I calculate the norm for every 2048-dim part feature.
+            ## 2. To keep the cosine score==1, sqrt(6) is added to norm the whole feature (2048*6).
+            fnorm = torch.norm(ff, p=2, dim=1, keepdim=True) * np.sqrt(opt.PCB_parts)
             ff = ff.div(fnorm.expand_as(ff))
             ff = ff.view(ff.size(0), -1)
         else:
@@ -222,11 +224,10 @@ for test_set in test_sets:
             model_structure = ft_net_dense(opt.nclasses)
         elif opt.use_NAS:
             model_structure = ft_net_NAS(opt.nclasses)
+        elif opt.PCB:
+            model_structure = PCB(opt.nclasses, opt.PCB_parts)
         else:
             model_structure = ft_net_feature(opt.nclasses, stride=opt.stride)
-
-        if opt.PCB:
-            model_structure = PCB(opt.nclasses)
 
 
         model = load_network(model_structure, which_epoch)
@@ -243,7 +244,7 @@ for test_set in test_sets:
             # print(model.classifier)
             # sys.exit()
         else:
-            model = PCB_test(model)
+            model = PCB_test(model, opt.PCB_parts)
 
         # Change to test mode
         model = model.eval()

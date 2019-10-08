@@ -287,6 +287,8 @@ class PCB(nn.Module):
         self.part = part  # We cut the pool5 to 6 parts
         model_ft = models.resnet50(pretrained=True)
         self.model = model_ft
+        ##===================================================
+        ## pooling 6 parts feature
         self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
 
         # # no dropout
@@ -295,6 +297,7 @@ class PCB(nn.Module):
         # remove the final downsample
         self.model.layer4[0].downsample[0].stride = (1, 1)
         self.model.layer4[0].conv2.stride = (1, 1)
+        ##===================================================
         # define 6 classifiers
         for i in range(self.part):
             name = 'classifier'+str(i)
@@ -302,6 +305,14 @@ class PCB(nn.Module):
 
             ####################### |--bn--|--Linear--| #######################
             setattr(self, name, ClassBlock(2048, class_num, droprate, relu=False, linear=False))
+
+        ##==========================================================================
+        ## add whole feature
+        self.avgpool_whole = nn.AdaptiveAvgPool2d((1, 1))
+
+        ####################### |--bn--|--Linear--| #######################
+        self.classifier_whole = ClassBlock(2048, class_num, droprate, relu=False, linear=False)
+        ##===========================================================================
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -312,15 +323,22 @@ class PCB(nn.Module):
         x = self.model.layer1(x)
         x = self.model.layer2(x)
         x = self.model.layer3(x)
-        x = self.model.layer4(x)
-        x = self.avgpool(x)
+        feat_bf_avgpool = self.model.layer4(x)
+        x = self.avgpool(feat_bf_avgpool)
+
+
+        ##=======================================================
+        # feat_whole = self.avgpool_whole(feat_bf_avgpool)
+        # feat_whole = feat_whole.view(feat_whole.size(0), -1)
+        #
+        # y_whole = self.classifier_whole(feat_whole)
+        ##=======================================================
 
         ## no dropout
         # x = self.dropout(x)
-
         part = {}
         predict = {}
-        # get six part feature batchsize*2048*6
+        # get six part feature (batchsize, 2048, 6)
         for i in range(self.part):
             part[i] = torch.squeeze(x[:, :, i])
             name = 'classifier'+str(i)
@@ -334,6 +352,11 @@ class PCB(nn.Module):
         y = []
         for i in range(self.part):
             y.append(predict[i])
+
+        ##=====================
+        # y.insert(0, y_whole)
+        ##=====================
+
         return y
 
 
@@ -349,12 +372,15 @@ class PCB_test(nn.Module):
             name = 'classifier'+str(i)
             c = getattr(model, name)
             c.classifier = nn.Sequential()
+
+        model.classifier_whole.classifier = nn.Sequential()
+
         self.model = model
         ##===================================================
 
         # self.model = model.model
         # self.avgpool = nn.AdaptiveAvgPool2d((self.part, 1))
-        # # remove the final downsample
+        ## remove the final downsample
         # self.model.layer4[0].downsample[0].stride = (1, 1)
         # self.model.layer4[0].conv2.stride = (1, 1)
 
@@ -372,11 +398,10 @@ class PCB_test(nn.Module):
         # y = x.view(x.size(0), x.size(1), x.size(2))
 
         ##===================================================
-        # feature after BN
-        features = self.model(x)
-        y = torch.stack(features, -1)
+        ## feature after BN
+        y = self.model(x)
+        y = torch.stack(y, -1)
         ##===================================================
-
         ## in consistent with ft_net_feature
         return None, y
 

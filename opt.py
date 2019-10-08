@@ -17,13 +17,15 @@ parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing p
 
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
+parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
+parser.add_argument('--PCB_parts', default=6, type=int, help='number of parts in PCB')
 
 parser.add_argument('--adam', action='store_true', help='use adam optimizer')
 parser.add_argument('--warmup', action='store_true', help='use warmup lr_scheduler')
 parser.add_argument('--lr', default=0.00035, type=float, help='learning rate')
 parser.add_argument('--epoch', default=120, type=int, help='epoch number')
 parser.add_argument('--droprate', default=0.0, type=float, help='drop rate')
-parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')
+
 parser.add_argument('--mixup', action='store_true', help='use mixup')
 
 parser.add_argument('--lsr', action='store_true', help='use label smoothing')

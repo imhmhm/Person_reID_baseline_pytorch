@@ -129,10 +129,10 @@ transform_val_list = [
 
 if opt.PCB:
     transform_train_list = [
-        ## (384, 192) or (384, 128)
+        #### (384, 192) or (384, 128)
         transforms.Resize((384, 192), interpolation=3),
-        # transforms.Pad(10),
-        # transforms.RandomCrop((384, 192)),
+        transforms.Pad(10),
+        transforms.RandomCrop((384, 192)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -404,8 +404,9 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     else:
                         loss = criterions['xent'](outputs, labels)
                 else:
+                    # _, outputs = model(inputs)
                     outputs = model(inputs)
-                    num_part = 6
+                    num_part = opt.PCB_parts
                     # part = {}
                     # sm = nn.Softmax(dim=1)
                     # for i in range(num_part):
@@ -415,8 +416,12 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     # _, preds = torch.max(score, 1)
 
                     loss = criterions['xent'](outputs[0], labels)
+                    ##======== part loss ========##
                     for i in range(num_part - 1):
                         loss += criterions['xent'](outputs[i + 1], labels)
+                    ##======== whole + part loss ========##
+                    # for i in range(num_part):
+                    #     loss += criterions['xent'](outputs[i + 1], labels)
 
                 # backward + optimize only if in training phase
                 if phase == 'train':
@@ -519,11 +524,11 @@ elif opt.use_NAS:
     model = ft_net_NAS(len(class_names), opt.droprate)
 # elif (not opt.use_dense) and (not opt.use_NAS) and opt.triplet:
 #     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
+elif opt.PCB:
+    model = PCB(len(class_names), part=opt.PCB_parts)
 else:
     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 
-if opt.PCB:
-    model = PCB(len(class_names))
 
 opt.nclasses = len(class_names)
 
