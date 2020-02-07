@@ -369,7 +369,7 @@ class ft_net_alex(nn.Module):
         # model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         model_ft.classifier = nn.Sequential()
         self.model = model_ft
-
+        self.model.fc = nn.Sequential()
         ##### |--Linear--|--bn--|--relu--|--dropout--|--Linear--| #####
         self.classifier = ClassBlock(input_dim=256*6*6, class_num=class_num, droprate=0.5, relu=True, bnorm=False,
                                      num_bottleneck=2048, return_f=True)
