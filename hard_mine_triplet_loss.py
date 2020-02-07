@@ -45,10 +45,10 @@ class TripletLoss(nn.Module):
             if epoch == 99:
                 max_idx = (dist[i] == (dist[i][mask[i]].max())).nonzero().squeeze()
                 min_idx = (dist[i] == (dist[i][mask[i] == 0].min())).nonzero().squeeze()
-                file = open('result.txt', 'a')
-                file.writelines('%d: %d, %d \n' % (targets[i], flags[i], flags[max_idx]))
-                file.writelines('%d: %d, %d \n' % (targets[i], flags[i], flags[min_idx]))
-                file.close()
+                # file = open('result.txt', 'a')
+                # file.writelines('%d: %d, %d \n' % (targets[i], flags[i], flags[max_idx]))
+                # file.writelines('%d: %d, %d \n' % (targets[i], flags[i], flags[min_idx]))
+                # file.close()
         dist_ap = torch.cat(dist_ap)
         dist_an = torch.cat(dist_an)
 

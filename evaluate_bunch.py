@@ -14,6 +14,7 @@ parser.add_argument('--test_sets', choices=['DukeMTMC-reID', 'Market', 'cuhk03-n
 parser.add_argument('--which_epochs', default='last', type=str, nargs='+', help='0,1,2,3...or last')
 # 59, 99, 119
 parser.add_argument('--multi', action='store_true', help='evaluating multi-queries')
+# parser.add_argument('--query_index', default=777, type=int, help='test_image_index')
 opt = parser.parse_args()
 #######################################################################
 # Evaluate
@@ -22,7 +23,7 @@ def evaluate(qf, ql, qc, gf, gl, gc):
     query = qf
     ##### cosine similarity #####
     score = np.dot(gf, query)
-    # predict index
+    ## predict index
     index = np.argsort(score)  # from small to large
     index = index[::-1]
 
@@ -40,20 +41,22 @@ def evaluate(qf, ql, qc, gf, gl, gc):
 
     return CMC_tmp
 
-# def evaluate_rerank(score,ql,qc,gl,gc):
-#     index = np.argsort(score)  #from small to large
-#     #index = index[::-1]
-#     # good index
-#     query_index = np.argwhere(gl==ql)
-#     camera_index = np.argwhere(gc==qc)
-#
-#     good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
-#     junk_index1 = np.argwhere(gl==-1)
-#     junk_index2 = np.intersect1d(query_index, camera_index)
-#     junk_index = np.append(junk_index2, junk_index1) #.flatten())
-#
-#     CMC_tmp = compute_mAP(index, good_index, junk_index)
-#     return CMC_tmp
+def evaluate_rk(idx, ql, qc, gl, gc):
+
+    index = idx
+    # index = index[0:2000]
+    # good index
+    query_index = np.argwhere(gl == ql)
+    camera_index = np.argwhere(gc == qc)
+
+    good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
+    junk_index1 = np.argwhere(gl == -1)
+    junk_index2 = np.intersect1d(query_index, camera_index)
+    junk_index = np.append(junk_index2, junk_index1)  # .flatten())
+
+    CMC_tmp = compute_mAP(index, good_index, junk_index)
+
+    return CMC_tmp
 
 def compute_mAP(index, good_index, junk_index):
     ap = 0
@@ -97,6 +100,12 @@ for test_set in opt.test_sets:
         gallery_cam = result['gallery_cam'][0]
         gallery_label = result['gallery_label'][0]
 
+        # index_path = os.path.join('./model', opt.name, test_set, 'return_index_sparse_k10.mat')
+        # index = scipy.io.loadmat(index_path)['Idx_A']
+        # # index_path = os.path.join('./model', opt.name, test_set, 'Idx_ori.mat')
+        # # index = scipy.io.loadmat(index_path)['Idx_ori']
+        # index = index - 1
+
         # multi = os.path.isfile('multi_query.mat')
         multi = opt.multi
         if multi:
@@ -110,6 +119,8 @@ for test_set in opt.test_sets:
         ap = 0.0
         # print(query_label)
         for i in range(len(query_label)):
+            # index_i = np.squeeze(index[i, :])
+            # ap_tmp, CMC_tmp = evaluate_rk(index_i, query_label[i], query_cam[i], gallery_label, gallery_cam)
             ap_tmp, CMC_tmp = evaluate(query_feature[i], query_label[i], query_cam[i], gallery_feature, gallery_label, gallery_cam)
             if CMC_tmp[0] == -1:
                 continue

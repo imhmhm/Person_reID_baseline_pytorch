@@ -52,10 +52,10 @@ class ClassBlock(nn.Module):
 
         classifier = []
         classifier += [nn.Linear(num_bottleneck, class_num)]
-        ########################
-        # no bias in classifier
+        #######################
+        ### no bias in classifier
         # classifier += [nn.Linear(num_bottleneck, class_num, bias=False)]
-        #########################
+        ########################
         classifier = nn.Sequential(*classifier)
         classifier.apply(weights_init_classifier)
 
@@ -67,7 +67,7 @@ class ClassBlock(nn.Module):
         if self.return_f:
             f = x
             x = self.classifier(x)
-            return x, f
+            return f, x
         else:
             x = self.classifier(x)
             return x
@@ -358,6 +358,29 @@ class PCB(nn.Module):
         ##=====================
 
         return y
+
+
+class ft_net_alex(nn.Module):
+
+    def __init__(self, class_num, droprate=0.0, stride=2):
+        super(ft_net_alex, self).__init__()
+        model_ft = models.alexnet(pretrained=True)
+        ## avg pooling to global pooling
+        # model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        model_ft.classifier = nn.Sequential()
+        self.model = model_ft
+
+        ##### |--Linear--|--bn--|--relu--|--dropout--|--Linear--| #####
+        self.classifier = ClassBlock(input_dim=256*6*6, class_num=class_num, droprate=0.5, relu=True, bnorm=False,
+                                     num_bottleneck=2048, return_f=True)
+
+    def forward(self, x):
+        x = self.model.features(x)
+        x = self.model.avgpool(x)
+        x = torch.flatten(x, 1)
+        feature, x = self.classifier(x)
+        return feature, x
+
 
 
 class PCB_test(nn.Module):

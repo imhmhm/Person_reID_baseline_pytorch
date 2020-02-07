@@ -17,7 +17,7 @@ import os
 import sys
 import scipy.io
 import yaml
-from model import ft_net, ft_net_dense, PCB, PCB_test, ft_net_feature
+from model import ft_net, ft_net_dense, ft_net_alex, PCB, PCB_test, ft_net_feature
 
 ######################################################################
 # Options
@@ -33,6 +33,7 @@ parser.add_argument('--which_epochs', default='last', type=str, nargs='+', help=
 
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
 parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+parser.add_argument('--use_alex', action='store_true', help='use alex')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB')
@@ -50,6 +51,7 @@ opt.PCB = config['PCB']
 opt.PCB_parts = config['PCB_parts']
 opt.use_dense = config['use_dense']
 opt.use_NAS = config['use_NAS']
+opt.use_alex = config['use_alex']
 opt.stride = config['stride']
 if 'nclasses' in config:
     opt.nclasses = config['nclasses']
@@ -226,6 +228,8 @@ for test_set in test_sets:
             model_structure = ft_net_NAS(opt.nclasses)
         elif opt.PCB:
             model_structure = PCB(opt.nclasses, opt.PCB_parts)
+        elif opt.use_alex:
+            model_structure = ft_net_alex(opt.nclasses)
         else:
             model_structure = ft_net_feature(opt.nclasses, stride=opt.stride)
 

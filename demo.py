@@ -5,16 +5,20 @@ import numpy as np
 import os
 from torchvision import datasets
 import matplotlib
-matplotlib.use('agg')
+# matplotlib.use('agg')
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 #######################################################################
 # Evaluate
 parser = argparse.ArgumentParser(description='Demo')
 parser.add_argument('--query_index', default=777, type=int, help='test_image_index')
-parser.add_argument('--test_dir',default='../Market/pytorch',type=str, help='./test_data')
+parser.add_argument('--test_dir', default='/home/hmhm/reid', type=str, help='test set base path')
+parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
+parser.add_argument('--test_set', choices=['DukeMTMC-reID', 'Market', 'cuhk03-np', 'MSMT17_V2'], help='test sets name')
+parser.add_argument('--which_epoch', default='last', type=str, help='0,1,2,3...or last')
 opts = parser.parse_args()
 
-data_dir = opts.test_dir
+data_dir = os.path.join(opts.test_dir, opts.test_set, 'pytorch')
 image_datasets = {x: datasets.ImageFolder( os.path.join(data_dir,x) ) for x in ['gallery','query']}
 
 #####################################################################
@@ -28,13 +32,21 @@ def imshow(path, title=None):
     plt.pause(0.001)  # pause a bit so that plots are updated
 
 ######################################################################
-result = scipy.io.loadmat('pytorch_result.mat')
+# result = scipy.io.loadmat('pytorch_result.mat')
+feat_path = os.path.join('./model', opts.name, opts.test_set, 'pytorch_result_{}.mat'.format(opts.which_epoch))
+result = scipy.io.loadmat(feat_path)
 query_feature = torch.FloatTensor(result['query_f'])
 query_cam = result['query_cam'][0]
 query_label = result['query_label'][0]
 gallery_feature = torch.FloatTensor(result['gallery_f'])
 gallery_cam = result['gallery_cam'][0]
 gallery_label = result['gallery_label'][0]
+
+index_path = os.path.join('./model', opts.name, opts.test_set, 'return_index_sparse_k15.mat')
+index = scipy.io.loadmat(index_path)['Idx_A']
+# index_path = os.path.join('./model', opts.name, test_set, 'Idx_ori.mat')
+# index = scipy.io.loadmat(index_path)['Idx_ori']
+index = index - 1 ## matlab indexing
 
 multi = os.path.isfile('multi_query.mat')
 
@@ -68,14 +80,33 @@ def sort_img(qf, ql, qc, gf, gl, gc):
     #good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
     junk_index1 = np.argwhere(gl==-1)
     junk_index2 = np.intersect1d(query_index, camera_index)
-    junk_index = np.append(junk_index2, junk_index1) 
+    junk_index = np.append(junk_index2, junk_index1)
+
+    mask = np.in1d(index, junk_index, invert=True)
+    index = index[mask]
+    return index
+
+#######################################################################
+# sort the images from index
+def sort_img_idx(idx, ql, qc, gl, gc):
+    index = idx
+    # good index
+    query_index = np.argwhere(gl==ql)
+    #same camera
+    camera_index = np.argwhere(gc==qc)
+
+    #good_index = np.setdiff1d(query_index, camera_index, assume_unique=True)
+    junk_index1 = np.argwhere(gl==-1)
+    junk_index2 = np.intersect1d(query_index, camera_index)
+    junk_index = np.append(junk_index2, junk_index1)
 
     mask = np.in1d(index, junk_index, invert=True)
     index = index[mask]
     return index
 
 i = opts.query_index
-index = sort_img(query_feature[i],query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+# index = sort_img(query_feature[i],query_label[i],query_cam[i],gallery_feature,gallery_label,gallery_cam)
+index = sort_img_idx(index[i], query_label[i], query_cam[i] ,gallery_label, gallery_cam)
 
 ########################################################################
 # Visualize the rank result
@@ -84,7 +115,7 @@ query_path, _ = image_datasets['query'].imgs[i]
 query_label = query_label[i]
 print(query_path)
 print('Top 10 images are as follow:')
-try: # Visualize Ranking Result 
+try: # Visualize Ranking Result
     # Graphical User Interface is needed
     fig = plt.figure(figsize=(16,4))
     ax = plt.subplot(1,11,1)
@@ -101,10 +132,12 @@ try: # Visualize Ranking Result
         else:
             ax.set_title('%d'%(i+1), color='red')
         print(img_path)
+    plt.waitforbuttonpress()
 except RuntimeError:
     for i in range(10):
         img_path = image_datasets.imgs[index[i]]
         print(img_path[0])
     print('If you want to see the visualization of the ranking result, graphical user interface is needed.')
 
-fig.savefig("show.png")
+save_path = os.path.join('./model', opts.name, opts.test_set, "show.png")
+fig.savefig(save_path)

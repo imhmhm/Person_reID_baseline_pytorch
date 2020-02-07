@@ -15,6 +15,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--stride', default=2, type=int, help='stride')
 parser.add_argument('--erasing_p', default=0, type=float, help='Random Erasing probability, in [0,1]')
 
+parser.add_argument('--use_alex', action='store_true', help='use alex')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121')
 parser.add_argument('--use_NAS', action='store_true', help='use NASnet')
 parser.add_argument('--PCB', action='store_true', help='use PCB+ResNet50')

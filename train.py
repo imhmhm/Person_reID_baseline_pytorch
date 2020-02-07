@@ -25,7 +25,7 @@ import random
 from collections import defaultdict
 import copy
 import math
-from model import ft_net, ft_net_dense, PCB, ft_net_feature
+from model import ft_net, ft_net_dense, ft_net_alex, PCB, ft_net_feature
 from random_erasing import RandomErasing
 
 from mixed import mixup_data, mixup_data_metric, stitch_data, stitch_data_metric
@@ -342,7 +342,7 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
         # for phase in ['train', 'val']:
         for phase in ['train']:
             if phase == 'train':
-                scheduler.step()
+                # scheduler.step()
                 model.train(True)  # Set model to training mode
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -446,6 +446,9 @@ def train_model(model, criterions, optimizer, scheduler, writer, num_epochs=25):
                     running_loss += loss.data[0] * now_batch_size
                 # running_corrects += float(torch.sum(preds == labels))
 
+            if phase == 'train':
+                scheduler.step()
+
             epoch_loss = running_loss / dataset_sizes[phase]
             if opt.triplet:
                 epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
@@ -526,6 +529,8 @@ elif opt.use_NAS:
 #     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 elif opt.PCB:
     model = PCB(len(class_names), part=opt.PCB_parts)
+elif opt.use_alex:
+    model = ft_net_alex(len(class_names), opt.droprate)
 else:
     model = ft_net_feature(len(class_names), opt.droprate, opt.stride)
 
