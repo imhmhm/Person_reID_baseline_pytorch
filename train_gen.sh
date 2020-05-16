@@ -8,12 +8,12 @@
 
 python train_gen.py \
 --gpu_ids 0 \
---data_dir /home/hmhm/reid/cuhk03-np/pytorch \
---gen_name cuhk03_train_7p_v4_5views_x1 \
+--data_dir /home/hmhm/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
 --lsr \
 --eps_gen 0.4 \
 --eps_real 0.0 \
---name cuhk_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.3_stride1_SGD \
+--name market_ResNet50_gen_e0.4_7p_v4_x1_b64_spl_3+1_tri0.3_stride1_SGD \
 --train_all \
 --batchsize 64 \
 --num_per_id 4 \
@@ -36,45 +36,64 @@ python train_gen.py \
 # #--resume \
 
 
-python train_gen.py \
---gpu_ids 0 \
---data_dir /home/hmhm/reid/cuhk03-np/pytorch \
---gen_name cuhk03_train_7p_v4_5views_x1 \
---lsr \
---eps_gen 0.4 \
---eps_real 0.0 \
---name cuhk_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
---train_all \
---batchsize 64 \
---num_per_id 4 \
---prop_real 3 \
---prop_gen 1 \
---stride 1 \
---wt_tri 0.1 \
---lr 0.01 \
---triplet;
+# python train_gen.py \
+# --gpu_ids 0 \
+# --data_dir /home/hmhm/reid/cuhk03-np/pytorch \
+# --gen_name cuhk03_train_7p_v4_5views_x1 \
+# --lsr \
+# --eps_gen 0.4 \
+# --eps_real 0.0 \
+# --name cuhk_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
+# --train_all \
+# --batchsize 64 \
+# --num_per_id 4 \
+# --prop_real 3 \
+# --prop_gen 1 \
+# --stride 1 \
+# --wt_tri 0.1 \
+# --lr 0.01 \
+# --triplet;
 
 # --wt_tri 0.2 \
 # --triplet;
-
-
+#
+#
+# python train_gen.py \
+# --gpu_ids 0 \
+# --data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
+# --gen_name duke_train_7p_v4_5views_v2_x1 \
+# --lsr \
+# --eps_gen 0.4 \
+# --eps_real 0.0 \
+# --name duke_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
+# --train_all \
+# --batchsize 64 \
+# --num_per_id 4 \
+# --prop_real 3 \
+# --prop_gen 1 \
+# --stride 1 \
+# --wt_tri 0.1 \
+# --lr 0.01 \
+# --triplet;
+#
 python train_gen.py \
 --gpu_ids 0 \
---data_dir /home/hmhm/reid/DukeMTMC-reID/pytorch \
---gen_name duke_train_7p_v4_5views_v2_x1 \
+--data_dir /home/hmhm/reid/Market/pytorch \
+--gen_name 1501_train_7p_v4_x1 \
 --lsr \
 --eps_gen 0.4 \
 --eps_real 0.0 \
---name duke_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
+--name market_ResNet50_gen_e0.4_7p_v4_x1_b8_spl_3+1_tri0.3_stride1_SGD \
 --train_all \
---batchsize 64 \
+--batchsize 8 \
 --num_per_id 4 \
 --prop_real 3 \
 --prop_gen 1 \
 --stride 1 \
---wt_tri 0.1 \
+--wt_tri 0.3 \
 --lr 0.01 \
 --triplet;
+#
 
 python train_gen.py \
 --gpu_ids 0 \
@@ -83,26 +102,25 @@ python train_gen.py \
 --lsr \
 --eps_gen 0.4 \
 --eps_real 0.0 \
---name market_ResNet101_gen_e0.4_branch_7p_v4_b64_spl_3+1_tri0.1_stride1_SGD \
+--name market_ResNet50_gen_e0.4_7p_v4_x1_b16_spl_3+1_tri0.3_stride1_SGD \
 --train_all \
---batchsize 64 \
+--batchsize 16 \
 --num_per_id 4 \
 --prop_real 3 \
 --prop_gen 1 \
 --stride 1 \
---wt_tri 0.1 \
+--wt_tri 0.3 \
 --lr 0.01 \
 --triplet;
 
-
-#=============
-# test
-#=============
+# #=============
+# # test
+# #=============
 bash test_gen.sh;
 #
 bash evaluate_gen.sh;
+# #
+# # bash train_gen_v1.sh;
 #
-# bash train_gen_v1.sh;
-
-#=============
-#=============
+# #=============
+# #=============

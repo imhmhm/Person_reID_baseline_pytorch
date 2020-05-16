@@ -2,7 +2,7 @@ import os
 from shutil import copyfile
 
 # You only need to change this line to your dataset download path
-download_path = '/home/tianlab/hengheng/reid/Market'
+download_path = '/home/hmhm/reid/Market'
 
 if not os.path.isdir(download_path):
     print('please change the download_path')
@@ -107,8 +107,8 @@ if not os.path.isdir(save_path):
 
 # ---------------------------------------
 # gen_train
-train_path = download_path + '/gen/1501_train_7p_v4'
-train_save_path = download_path + '/pytorch/1501_train_7p_v4'
+train_path = download_path + '/d_gen_48k'
+train_save_path = download_path + '/pytorch/d_gen_48k'
 if not os.path.isdir(train_save_path):
     os.mkdir(train_save_path)
 

@@ -288,7 +288,10 @@ class GenSampler(Sampler):
         self.length = 0
         for pid in self.pids:
             num_real = len(self.index_dic_real[pid])
+            # if pid in self.index_dic_gen.keys():
             num_gen = len(self.index_dic_gen[pid])
+            # else:
+            num_gen = len(self.index_dic_real[pid])
             # num = len(idxs_real)
             if self.real >= self.gen:
                 if num_real < self.real:
@@ -301,6 +304,7 @@ class GenSampler(Sampler):
                 self.length += num_gen - num_gen % self.gen
                 self.length += (num_gen - num_gen % self.gen) // self.gen * self.real
 
+
     def __iter__(self):
         batch_idxs_dict_real = defaultdict(list)
         batch_idxs_dict_gen = defaultdict(list)
@@ -311,10 +315,14 @@ class GenSampler(Sampler):
             if len(idxs_real) < self.real:
                 idxs_real = np.random.choice(idxs_real, size=self.real, replace=True)
             random.shuffle(idxs_real)
+            # if pid in self.index_dic_gen.keys():
             idxs_gen = copy.deepcopy(self.index_dic_gen[pid])
+            # else:
+            idxs_gen = copy.deepcopy(self.index_dic_real[pid])
             if len(idxs_gen) < self.gen:
                 idxs_gen = np.random.choice(idxs_gen, size=self.gen, replace=True)
             random.shuffle(idxs_gen)
+
 
             batch_idxs_real = []
             batch_idxs_gen = []
@@ -425,7 +433,8 @@ image_datasets['val'] = genDataset(os.path.join(data_dir, 'val'), data_transform
 
 dataloaders = {}
 dataloaders['train'] = DataLoader(image_datasets['train'], batch_size=opt.batchsize,
-                                  sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id, proportion),
+                                  # sampler=GenSampler(image_datasets['train'], opt.batchsize, opt.num_per_id, proportion),
+                                  # sampler=RandomGenSampler(image_datasets['train'], cumulative_sizes, proportion),
                                   num_workers=8, drop_last=True)  # 8 workers may work faster
 dataloaders['val'] = DataLoader(image_datasets['val'], batch_size=8,
                                 shuffle=True, num_workers=0, drop_last=True)  # 8 workers may work faster
@@ -515,7 +524,7 @@ def train_model(model, criterion, optimizer, scheduler, writer, num_epochs=25):
         # Each epoch has a training and validation phase
         for phase in ['train']:
             if phase == 'train':
-                scheduler.step()
+                # scheduler.step()
                 model.train(True)  # Set model to training mode
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -609,7 +618,8 @@ def train_model(model, criterion, optimizer, scheduler, writer, num_epochs=25):
                 else:  # for the old version like 0.3.0 and 0.3.1
                     running_loss += loss.data[0] * now_batch_size
                 # running_corrects += float(torch.sum(preds == labels.data))
-
+            if phase == 'train':
+                scheduler.step()
             epoch_loss = running_loss / dataset_sizes[phase]
             if opt.triplet:
                 epoch_loss_xent = running_loss_xent / dataset_sizes[phase]
