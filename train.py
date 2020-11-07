@@ -22,6 +22,8 @@ import yaml
 import math
 from shutil import copyfile
 
+from tqdm import tqdm
+
 version =  torch.__version__
 #fp16
 try:
@@ -163,11 +165,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
-        
+
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
+                # scheduler.step()
                 model.train(True)  # Set model to training mode
             else:
                 model.train(False)  # Set model to evaluate mode
@@ -175,7 +177,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_loss = 0.0
             running_corrects = 0.0
             # Iterate over data.
-            for data in dataloaders[phase]:
+            for data in tqdm(dataloaders[phase]):
                 # get the inputs
                 inputs, labels = data
                 now_batch_size,c,h,w = inputs.shape
@@ -191,7 +193,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # if we use low precision, input also need to be fp16
                 #if fp16:
                 #    inputs = inputs.half()
- 
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -220,7 +222,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                         loss += criterion(part[i+1], labels)
 
                 # backward + optimize only if in training phase
-                if epoch<opt.warm_epoch and phase == 'train': 
+                if epoch<opt.warm_epoch and phase == 'train':
                     warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
                     loss *= warm_up
 
@@ -231,6 +233,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     else:
                         loss.backward()
                     optimizer.step()
+                    scheduler.step()
 
                 # statistics
                 if int(version[0])>0 or int(version[2]) > 3: # for the new version like 0.4.0, 0.5.0 and 1.0.0
@@ -241,12 +244,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
-            
+
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
-            
+
             y_loss[phase].append(epoch_loss)
-            y_err[phase].append(1.0-epoch_acc)            
+            y_err[phase].append(1.0-epoch_acc)
             # deep copy the model
             if phase == 'val':
                 last_model_wts = model.state_dict()
@@ -329,7 +332,7 @@ if not opt.PCB:
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 else:
     ignored_params = list(map(id, model.model.fc.parameters() ))
-    ignored_params += (list(map(id, model.classifier0.parameters() )) 
+    ignored_params += (list(map(id, model.classifier0.parameters() ))
                      +list(map(id, model.classifier1.parameters() ))
                      +list(map(id, model.classifier2.parameters() ))
                      +list(map(id, model.classifier3.parameters() ))
@@ -359,7 +362,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
 # Train and evaluate
 # ^^^^^^^^^^^^^^^^^^
 #
-# It should take around 1-2 hours on GPU. 
+# It should take around 1-2 hours on GPU.
 #
 dir_name = os.path.join('./model',name)
 if not os.path.isdir(dir_name):
@@ -383,4 +386,3 @@ criterion = nn.CrossEntropyLoss()
 
 model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler,
                        num_epochs=60)
-

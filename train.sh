@@ -1,0 +1,11 @@
+python train.py \
+--gpu_ids 0 \
+--name PCB \
+--PCB \
+--train_all \
+--lr 0.02 \
+--train_all \
+--batchsize 32 \
+--data_dir ../Market/pytorch \
+--erasing_p 0.5 \
+--fp16 \
